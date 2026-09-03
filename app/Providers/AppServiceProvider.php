@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\GenericUser;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -23,6 +26,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Auth::viaRequest('room', function (Request $request): ?GenericUser {
+            $channelName = (string) $request->input('channel_name');
+
+            if (! str_starts_with($channelName, 'private-room.')) {
+                return null;
+            }
+
+            $code = substr($channelName, strlen('private-room.'));
+
+            if (! $request->session()->get('room-access.'.$code)) {
+                return null;
+            }
+
+            return new GenericUser(['id' => 'room-'.$code]);
+        });
+
         $this->configureDefaults();
     }
 

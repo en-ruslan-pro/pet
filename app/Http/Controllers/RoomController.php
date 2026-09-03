@@ -1,0 +1,108 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Events\RoomCommandRequested;
+use App\Models\Room;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
+
+class RoomController extends Controller
+{
+    public function create(): View
+    {
+        return view('rooms.create');
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'pet_name' => ['required', 'string', 'max:30'],
+        ]);
+
+        $room = Room::createForPet($validated['pet_name']);
+        $this->grantAccess($request, $room);
+
+        return to_route('room.show', $room);
+    }
+
+    public function tvEntry(): View
+    {
+        return view('tv.entry');
+    }
+
+    public function enterTv(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => ['required', 'alpha_num', 'size:6'],
+        ]);
+
+        $room = Room::query()->where('code', Str::upper($validated['code']))->firstOrFail();
+
+        return to_route('tv.show', $room);
+    }
+
+    public function showTv(Request $request, Room $room): View
+    {
+        $this->grantAccess($request, $room);
+        $room->update(['tv_connected_at' => now()]);
+
+        return view('tv.show', [
+            'room' => $room,
+            'reverb' => [
+                'appKey' => config('broadcasting.connections.reverb.key'),
+                'host' => config('broadcasting.connections.reverb.options.host'),
+                'port' => (int) config('broadcasting.connections.reverb.options.port'),
+                'scheme' => config('broadcasting.connections.reverb.options.scheme'),
+            ],
+        ]);
+    }
+
+    public function show(Request $request, Room $room): View
+    {
+        $this->grantAccess($request, $room);
+
+        return view('rooms.show', compact('room'));
+    }
+
+    public function heartbeat(Request $request, Room $room): JsonResponse
+    {
+        $this->ensureAccess($request, $room);
+        $room->update(['tv_connected_at' => now()]);
+
+        return response()->json(['connected' => true]);
+    }
+
+    public function status(Request $request, Room $room): JsonResponse
+    {
+        $this->ensureAccess($request, $room);
+
+        return response()->json([
+            'connected' => $room->fresh()->isTvConnected(),
+        ]);
+    }
+
+    public function sendMeow(Request $request, Room $room): JsonResponse
+    {
+        $this->ensureAccess($request, $room);
+        RoomCommandRequested::dispatch($room, 'meow');
+
+        return response()->json([
+            'action' => 'meow',
+            'message' => "{$room->pet_name} услышит вас на телевизоре.",
+        ]);
+    }
+
+    private function grantAccess(Request $request, Room $room): void
+    {
+        $request->session()->put('room-access.'.$room->code, true);
+    }
+
+    private function ensureAccess(Request $request, Room $room): void
+    {
+        abort_unless($request->session()->get('room-access.'.$room->code) === true, 403);
+    }
+}

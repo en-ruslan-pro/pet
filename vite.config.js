@@ -11,6 +11,8 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/js/demo.js',
                 'resources/js/passkeys.js',
+                'resources/js/room-controller.js',
+                'resources/js/tv-room.js',
             ],
             refresh: true,
             fonts: [

@@ -278,6 +278,14 @@ if (!window.WebGLRenderingContext) {
         actionLabel.textContent = `Анимация: ${selectedAnimation.name}`;
     });
 
+    window.addEventListener('message', (event) => {
+        if (event.origin !== window.location.origin || event.data?.action !== 'meow') {
+            return;
+        }
+
+        actionLabel.textContent = `${event.data.petName ?? 'Мурка'} мяукает`;
+    });
+
     new GLTFLoader().load(
         '/models/stripe-the-cat.glb',
         (gltf) => {

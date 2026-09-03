@@ -75,12 +75,12 @@ if (!window.WebGLRenderingContext) {
         { file: 'armchair', position: [-7.15, 1.05], rotationX: Math.PI / 2, span: 1.55 },
         { file: 'simple_library_A', position: [6.8, -5.35], rotation: -Math.PI / 2, span: 2.15 },
         { file: 'lamp', position: [5.8, -2.95], span: 1.25 },
-        { file: 'plant', position: [-6.9, -4.8], rotation: Math.PI / 4, span: 1.45 },
+        { file: 'plant', position: [-6.9, -4.8], rotation: Math.PI / 4, span: 1.45, heightScale: 1.5 },
     ];
 
     const roomLoader = new GLTFLoader();
 
-    const addRoomAsset = ({ file, position, rotation = 0, rotationX = 0, rotationZ = 0, span, elevation = 0 }) => {
+    const addRoomAsset = ({ file, position, rotation = 0, rotationX = 0, rotationZ = 0, span, elevation = 0, heightScale = 1 }) => {
         roomLoader.load(`/models/room/${file}.glb`, (gltf) => {
             const asset = gltf.scene;
             asset.rotation.y = rotation;
@@ -97,6 +97,7 @@ if (!window.WebGLRenderingContext) {
             }
 
             asset.scale.setScalar(span / footprint);
+            asset.scale.y *= heightScale;
             asset.updateMatrixWorld(true);
 
             const scaledBounds = new THREE.Box3().setFromObject(asset);
@@ -113,10 +114,18 @@ if (!window.WebGLRenderingContext) {
 
     roomAssets.forEach(addRoomAsset);
 
-    const roomLight = new THREE.PointLight('#ffb85f', 95, 15, 2);
-    roomLight.position.set(0, 7, 0);
-    roomLight.castShadow = true;
-    scene.add(roomLight);
+    const roomLights = [
+        { color: '#ffb85f', intensity: 95, distance: 15, position: [0, 7, 0], castsShadow: true },
+        { color: '#ffc878', intensity: 58, distance: 9, position: [-7.15, 7.25, -5.15] },
+    ].map(({ color, intensity, distance, position, castsShadow = false }) => {
+        const light = new THREE.PointLight(color, intensity, distance, 2);
+        light.position.set(...position);
+        light.castShadow = castsShadow;
+        scene.add(light);
+
+        return { light, intensity };
+    });
+    const [{ light: roomLight }] = roomLights;
     const cameraLight = new THREE.SpotLight('#ffe5bd', 0.9, 18, 0.8, 0.45, 2);
     cameraLight.position.copy(camera.position);
     cameraLight.target.position.copy(cameraTarget);
@@ -128,7 +137,6 @@ if (!window.WebGLRenderingContext) {
     const lightingDefaults = {
         exposure: 1.12,
         hemisphereIntensity: 2.35,
-        roomLightIntensity: 95,
     };
     let lightingLevel = 1;
 
@@ -136,7 +144,9 @@ if (!window.WebGLRenderingContext) {
         lightingLevel = Number(lightingControl.value);
 
         renderer.toneMappingExposure = lightingDefaults.exposure * lightingLevel;
-        roomLight.intensity = lightingDefaults.roomLightIntensity * lightingLevel;
+        roomLights.forEach(({ light, intensity }) => {
+            light.intensity = intensity * lightingLevel;
+        });
         hemisphereLight.intensity = lightingDefaults.hemisphereIntensity * lightingLevel;
         lightingValue.textContent = `${lightingLevel.toFixed(2)}×`;
         updateCameraLight();

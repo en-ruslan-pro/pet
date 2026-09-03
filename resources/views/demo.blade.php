@@ -89,6 +89,7 @@
                 position: fixed;
                 top: clamp(1.25rem, 3vw, 3rem);
                 right: clamp(1.25rem, 3vw, 3rem);
+                bottom: clamp(1.25rem, 3vw, 3rem);
                 z-index: 1;
                 display: grid;
                 gap: 1rem;
@@ -98,6 +99,28 @@
                 border-radius: 0.75rem;
                 background: rgb(24 20 16 / 74%);
                 backdrop-filter: blur(0.75rem);
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                scrollbar-color: #dd9a45 rgb(255 255 255 / 8%);
+                scrollbar-gutter: stable;
+                scrollbar-width: thin;
+            }
+
+            .demo-controls::-webkit-scrollbar {
+                width: 0.6rem;
+            }
+
+            .demo-controls::-webkit-scrollbar-track {
+                margin: 0.5rem 0;
+                border-radius: 999px;
+                background: rgb(255 255 255 / 8%);
+            }
+
+            .demo-controls::-webkit-scrollbar-thumb {
+                border: 0.15rem solid transparent;
+                border-radius: 999px;
+                background: #dd9a45;
+                background-clip: padding-box;
             }
 
             .demo-controls[hidden] {
@@ -250,12 +273,22 @@
                     <button type="button" data-light-axis="y" data-light-direction="-1">Y −</button>
                     <button type="button" data-light-axis="z" data-light-direction="1">Z +</button>
                 </div>
+                <label for="demo-light-distance" class="demo-controls__title">Дальность</label>
+                <input id="demo-light-distance" type="range" min="5" max="30" step="0.5" value="15" aria-label="Дальность верхнего света">
+                <output id="demo-light-distance-value" class="demo-controls__value">15.0</output>
+                <label for="demo-light-strength" class="demo-controls__title">Сила</label>
+                <input id="demo-light-strength" type="range" min="0" max="200" step="5" value="95" aria-label="Сила верхнего света">
+                <output id="demo-light-strength-value" class="demo-controls__value">95</output>
             </section>
 
             <section class="demo-controls__section">
-                <label for="demo-light-distance" class="demo-controls__title">Дальность верхнего света</label>
-                <input id="demo-light-distance" type="range" min="5" max="30" step="0.5" value="15" aria-label="Дальность верхнего света">
-                <output id="demo-light-distance-value" class="demo-controls__value">15.0</output>
+                <p class="demo-controls__title">Свет у растения</p>
+                <label for="demo-plant-light-distance" class="demo-controls__title">Дальность</label>
+                <input id="demo-plant-light-distance" type="range" min="5" max="30" step="0.5" value="9" aria-label="Дальность света у растения">
+                <output id="demo-plant-light-distance-value" class="demo-controls__value">9.0</output>
+                <label for="demo-plant-light-strength" class="demo-controls__title">Сила</label>
+                <input id="demo-plant-light-strength" type="range" min="0" max="200" step="5" value="110" aria-label="Сила света у растения">
+                <output id="demo-plant-light-strength-value" class="demo-controls__value">110</output>
             </section>
 
             <section class="demo-controls__section">
@@ -267,6 +300,14 @@
                 <label for="demo-camera-light-strength" class="demo-controls__title">Сила</label>
                 <input id="demo-camera-light-strength" type="range" min="0" max="2" step="0.05" value="0.90" aria-label="Сила света от камеры">
                 <output id="demo-camera-light-strength-value" class="demo-controls__value">0.90</output>
+            </section>
+
+            <section class="demo-controls__section">
+                <p class="demo-controls__title">Рассеянный свет</p>
+                <p class="demo-controls__value">Без затухания</p>
+                <label for="demo-hemisphere-light-strength" class="demo-controls__title">Сила</label>
+                <input id="demo-hemisphere-light-strength" type="range" min="0" max="5" step="0.05" value="2.35" aria-label="Сила рассеянного света">
+                <output id="demo-hemisphere-light-strength-value" class="demo-controls__value">2.35</output>
             </section>
         </aside>
 

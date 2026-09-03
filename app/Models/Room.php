@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\RoomFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -110,6 +111,18 @@ class Room extends Model
     public function isTvConnected(): bool
     {
         return $this->tv_connected_at?->isAfter(now()->subSeconds(30)) ?? false;
+    }
+
+    /** @return HasMany<Pet, $this> */
+    public function pets(): HasMany
+    {
+        return $this->hasMany(Pet::class);
+    }
+
+    /** @return HasMany<RoomItem, $this> */
+    public function items(): HasMany
+    {
+        return $this->hasMany(RoomItem::class);
     }
 
     public function getRouteKeyName(): string

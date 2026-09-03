@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { findWalkablePath, ROOM_LAYOUT } from './room-layout';
 
 const container = document.querySelector('#pet-demo');
 const actionLabel = document.querySelector('#pet-action');
@@ -11,13 +12,21 @@ const lightPositionValue = document.querySelector('#demo-light-position');
 const lightControls = document.querySelectorAll('[data-light-axis]');
 const lightDistanceControl = document.querySelector('#demo-light-distance');
 const lightDistanceValue = document.querySelector('#demo-light-distance-value');
+const lightStrengthControl = document.querySelector('#demo-light-strength');
+const lightStrengthValue = document.querySelector('#demo-light-strength-value');
+const plantLightDistanceControl = document.querySelector('#demo-plant-light-distance');
+const plantLightDistanceValue = document.querySelector('#demo-plant-light-distance-value');
+const plantLightStrengthControl = document.querySelector('#demo-plant-light-strength');
+const plantLightStrengthValue = document.querySelector('#demo-plant-light-strength-value');
 const cameraLightDistanceControl = document.querySelector('#demo-camera-light-distance');
 const cameraLightDistanceValue = document.querySelector('#demo-camera-light-distance-value');
 const cameraLightStrengthControl = document.querySelector('#demo-camera-light-strength');
 const cameraLightStrengthValue = document.querySelector('#demo-camera-light-strength-value');
+const hemisphereLightStrengthControl = document.querySelector('#demo-hemisphere-light-strength');
+const hemisphereLightStrengthValue = document.querySelector('#demo-hemisphere-light-strength-value');
 const animationControl = document.querySelector('#demo-animation');
 
-if (container === null || actionLabel === null || lightingControl === null || lightingValue === null || cameraPositionValue === null || lightPositionValue === null || lightDistanceControl === null || lightDistanceValue === null || cameraLightDistanceControl === null || cameraLightDistanceValue === null || cameraLightStrengthControl === null || cameraLightStrengthValue === null || animationControl === null) {
+if (container === null || actionLabel === null || lightingControl === null || lightingValue === null || cameraPositionValue === null || lightPositionValue === null || lightDistanceControl === null || lightDistanceValue === null || lightStrengthControl === null || lightStrengthValue === null || plantLightDistanceControl === null || plantLightDistanceValue === null || plantLightStrengthControl === null || plantLightStrengthValue === null || cameraLightDistanceControl === null || cameraLightDistanceValue === null || cameraLightStrengthControl === null || cameraLightStrengthValue === null || hemisphereLightStrengthControl === null || hemisphereLightStrengthValue === null || animationControl === null) {
     throw new Error('The Virtual Pet TV demo container is missing.');
 }
 
@@ -69,17 +78,6 @@ if (!window.WebGLRenderingContext) {
     sideWall.position.set(-8.8, 4.5, 0);
     room.add(sideWall);
 
-    const roomAssets = [
-        { file: 'frames', position: [-3.4, -6.35], span: 2.8, elevation: 3.7 },
-        { file: 'couch', position: [3.7, -4.65], rotationX: Math.PI / 2, span: 3.7 },
-        { file: 'armchair', position: [-7.15, 1.05], rotationX: Math.PI / 2, span: 1.55 },
-        { file: 'simple_single_bed', position: [-3.35, -2.65], rotationX: Math.PI / 2, span: 2.35 },
-        { file: 'rug', position: [-1.15, 2.8], rotationX: Math.PI / 2, span: 3.1 },
-        { file: 'simple_library_A', position: [6.8, -5.35], rotation: -Math.PI / 2, span: 2.15 },
-        { file: 'lamp', position: [5.8, -2.95], span: 1.25 },
-        { file: 'plant', position: [-6.9, -4.8], rotation: Math.PI / 4, span: 1.45, heightScale: 1.5 },
-    ];
-
     const roomLoader = new GLTFLoader();
 
     const addRoomAsset = ({ file, position, rotation = 0, rotationX = 0, rotationZ = 0, span, elevation = 0, heightScale = 1 }) => {
@@ -114,19 +112,12 @@ if (!window.WebGLRenderingContext) {
         });
     };
 
-    roomAssets.forEach(addRoomAsset);
+    ROOM_LAYOUT.assets.forEach(addRoomAsset);
 
-    const roomObjects = {
-        bed: { interactionPoint: new THREE.Vector3(-2.75, 0, -2.65) },
-        foodBowl: { interactionPoint: new THREE.Vector3(2.8, 0, 1.55) },
-        waterBowl: { interactionPoint: new THREE.Vector3(3.85, 0, 1.55) },
-        scratchingPost: { interactionPoint: new THREE.Vector3(5.85, 0, 1.9) },
-        window: { interactionPoint: new THREE.Vector3(4.6, 0, -6.42) },
-        sofa: { interactionPoint: new THREE.Vector3(2.25, 0, -3.55) },
-        rug: { interactionPoint: new THREE.Vector3(-1.15, 0, 2.8) },
-        ball: { interactionPoint: new THREE.Vector3(-0.3, 0, 2.15) },
-        toyMouse: { interactionPoint: new THREE.Vector3(-1.15, 0, 2.8) },
-    };
+    const toSceneVector = ([x, z]) => new THREE.Vector3(x, 0, z);
+    const roomObjects = Object.fromEntries([...ROOM_LAYOUT.assets, ...ROOM_LAYOUT.objects]
+        .filter(({ position }) => position !== undefined)
+        .map(({ id, interactionPoint, position }) => [id, { interactionPoint: toSceneVector(interactionPoint ?? position) }]));
     const interestPoints = Object.fromEntries(
         Object.entries(roomObjects).map(([name, { interactionPoint }]) => [name, interactionPoint]),
     );
@@ -169,27 +160,6 @@ if (!window.WebGLRenderingContext) {
     scratchingPost.children[1].position.y = 0.76;
     addInteractionMesh(scratchingPost, 'scratchingPost', 0.07);
 
-    const windowFrame = new THREE.Group();
-    const glass = new THREE.Mesh(
-        new THREE.BoxGeometry(2.35, 1.75, 0.08),
-        new THREE.MeshStandardMaterial({ color: '#82bbd0', roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.7 }),
-    );
-    const frameMaterial = new THREE.MeshStandardMaterial({ color: '#60453a', roughness: 0.72 });
-    windowFrame.add(
-        glass,
-        new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.12, 0.14), frameMaterial),
-        new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.12, 0.14), frameMaterial),
-        new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.85, 0.14), frameMaterial),
-        new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.85, 0.14), frameMaterial),
-        new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.65, 0.14), frameMaterial),
-        new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.1, 0.14), frameMaterial),
-    );
-    windowFrame.children[1].position.y = 0.9;
-    windowFrame.children[2].position.y = -0.9;
-    windowFrame.children[3].position.x = -1.22;
-    windowFrame.children[4].position.x = 1.22;
-    addInteractionMesh(windowFrame, 'window', 1.75);
-
     const ball = new THREE.Mesh(
         new THREE.SphereGeometry(0.26, 20, 16),
         new THREE.MeshStandardMaterial({ color: '#db6752', roughness: 0.44 }),
@@ -211,7 +181,7 @@ if (!window.WebGLRenderingContext) {
 
     const roomLights = [
         { color: '#ffb85f', intensity: 95, distance: 15, position: [0, 7, 0], castsShadow: true },
-        { color: '#ffc878', intensity: 58, distance: 9, position: [-7.15, 7.25, -5.15] },
+        { color: '#ffc878', intensity: 110, distance: 9, position: [-7.15, 7.25, -5.15] },
     ].map(({ color, intensity, distance, position, castsShadow = false }) => {
         const light = new THREE.PointLight(color, intensity, distance, 2);
         light.position.set(...position);
@@ -220,7 +190,7 @@ if (!window.WebGLRenderingContext) {
 
         return { light, intensity };
     });
-    const [{ light: roomLight }] = roomLights;
+    const [{ light: roomLight }, { light: plantCornerLight }] = roomLights;
     const cameraLight = new THREE.SpotLight('#ffe5bd', 0.9, 18, 0.8, 0.45, 2);
     cameraLight.position.copy(camera.position);
     cameraLight.target.position.copy(cameraTarget);
@@ -231,7 +201,6 @@ if (!window.WebGLRenderingContext) {
 
     const lightingDefaults = {
         exposure: 1.12,
-        hemisphereIntensity: 2.35,
     };
     let lightingLevel = 1;
 
@@ -239,12 +208,11 @@ if (!window.WebGLRenderingContext) {
         lightingLevel = Number(lightingControl.value);
 
         renderer.toneMappingExposure = lightingDefaults.exposure * lightingLevel;
-        roomLights.forEach(({ light, intensity }) => {
-            light.intensity = intensity * lightingLevel;
-        });
-        hemisphereLight.intensity = lightingDefaults.hemisphereIntensity * lightingLevel;
         lightingValue.textContent = `${lightingLevel.toFixed(2)}×`;
+        updateRoomLight();
+        updatePlantCornerLight();
         updateCameraLight();
+        updateHemisphereLight();
     };
 
     const updateCameraPosition = () => {
@@ -256,9 +224,20 @@ if (!window.WebGLRenderingContext) {
         lightPositionValue.textContent = `X ${roomLight.position.x.toFixed(2)} · Y ${roomLight.position.y.toFixed(2)} · Z ${roomLight.position.z.toFixed(2)}`;
     };
 
-    const updateLightDistance = () => {
+    const updateRoomLight = () => {
         roomLight.distance = Number(lightDistanceControl.value);
+        roomLight.intensity = Number(lightStrengthControl.value) * lightingLevel;
         lightDistanceValue.textContent = roomLight.distance.toFixed(1);
+        lightStrengthValue.textContent = lightStrengthControl.value;
+    };
+
+    const updatePlantCornerLight = () => {
+        const strength = Number(plantLightStrengthControl.value);
+
+        plantCornerLight.distance = Number(plantLightDistanceControl.value);
+        plantCornerLight.intensity = strength * lightingLevel;
+        plantLightDistanceValue.textContent = plantCornerLight.distance.toFixed(1);
+        plantLightStrengthValue.textContent = strength.toFixed(0);
     };
 
     const updateCameraLight = () => {
@@ -268,10 +247,19 @@ if (!window.WebGLRenderingContext) {
         cameraLightStrengthValue.textContent = cameraLightStrengthControl.value;
     };
 
+    const updateHemisphereLight = () => {
+        hemisphereLight.intensity = Number(hemisphereLightStrengthControl.value) * lightingLevel;
+        hemisphereLightStrengthValue.textContent = hemisphereLightStrengthControl.value;
+    };
+
     lightingControl.addEventListener('input', updateLighting);
-    lightDistanceControl.addEventListener('input', updateLightDistance);
+    lightDistanceControl.addEventListener('input', updateRoomLight);
+    lightStrengthControl.addEventListener('input', updateRoomLight);
+    plantLightDistanceControl.addEventListener('input', updatePlantCornerLight);
+    plantLightStrengthControl.addEventListener('input', updatePlantCornerLight);
     cameraLightDistanceControl.addEventListener('input', updateCameraLight);
     cameraLightStrengthControl.addEventListener('input', updateCameraLight);
+    hemisphereLightStrengthControl.addEventListener('input', updateHemisphereLight);
     cameraControls.forEach((control) => {
         control.addEventListener('click', () => {
             const axis = control.dataset.cameraAxis;
@@ -303,8 +291,9 @@ if (!window.WebGLRenderingContext) {
     updateLighting();
     updateCameraPosition();
     updateLightPosition();
-    updateLightDistance();
+    updateRoomLight();
     updateCameraLight();
+    updateHemisphereLight();
 
     const actionNames = {
         idle: 'Отдыхает',
@@ -313,7 +302,6 @@ if (!window.WebGLRenderingContext) {
         eat: 'Ест',
         sleep: 'Спит',
         play: 'Играет',
-        lookWindow: 'Смотрит в окно',
         scratch: 'Точит когти',
     };
     const actionDurations = {
@@ -323,15 +311,9 @@ if (!window.WebGLRenderingContext) {
         eat: [5, 7],
         sleep: [9, 13],
         play: [6, 9],
-        lookWindow: [7, 12],
         scratch: [5, 8],
     };
-    const walkTargets = [
-        new THREE.Vector3(-2.1, 0, -0.25),
-        new THREE.Vector3(1.85, 0, 0.95),
-        new THREE.Vector3(-1.25, 0, 2.1),
-        new THREE.Vector3(2.25, 0, -1.75),
-    ];
+    const walkTargets = [[-2.1, -0.25], [1.85, 0.95], [-1.25, 2.1], [2.25, -1.75]];
 
     let cat;
     let mixer;
@@ -341,6 +323,8 @@ if (!window.WebGLRenderingContext) {
     let actionDuration = 8;
     let walkStart;
     let walkTarget;
+    let walkPath = [];
+    let walkPathDistance = 0;
     let animationClips = [];
     let selectedAnimation;
     let queuedAction;
@@ -348,9 +332,7 @@ if (!window.WebGLRenderingContext) {
 
     const behaviorTargets = {
         eat: 'foodBowl',
-        sleep: 'bed',
         play: 'toyMouse',
-        lookWindow: 'window',
         scratch: 'scratchingPost',
         sit: 'sofa',
     };
@@ -384,7 +366,6 @@ if (!window.WebGLRenderingContext) {
                 ['idle', 4],
                 ['walk', 4],
                 ['sit', 3],
-                ['lookWindow', 3],
                 ['scratch', 2],
             ].map(([action, weight]) => [action, action === this.lastAction ? weight * 0.35 : weight]);
             const totalWeight = candidates.reduce((total, [, weight]) => total + weight, 0);
@@ -462,14 +443,19 @@ if (!window.WebGLRenderingContext) {
             eat: findAnimationClip(clips, ['eat', 'feed']) ?? idleClip,
             sleep: findAnimationClip(clips, ['sleep', 'rest']) ?? idleClip,
             play: findAnimationClip(clips, ['play', 'jump']) ?? idleClip,
-            lookWindow: findAnimationClip(clips, ['look', 'sit', 'rest']) ?? idleClip,
             scratch: findAnimationClip(clips, ['scratch', 'stand']) ?? idleClip,
         };
         playAnimation(actionClips[nextAction]);
 
         if (nextAction === 'walk' && cat !== undefined) {
             walkStart = cat.position.clone();
-            walkTarget = options.target?.clone() ?? walkTargets[Math.floor(Math.random() * walkTargets.length)].clone();
+            const randomTarget = walkTargets[Math.floor(Math.random() * walkTargets.length)];
+            const target = options.target ?? toSceneVector(randomTarget);
+            const path = findWalkablePath([walkStart.x, walkStart.z], [target.x, target.z]);
+            walkPath = path?.map(([x, z]) => new THREE.Vector3(x, 0, z)) ?? [];
+            walkTarget = walkPath.at(-1) ?? walkStart;
+            walkPathDistance = walkPath.reduce((total, point, index) => total + (index === 0 ? walkStart : walkPath[index - 1]).distanceTo(point), 0);
+            actionDuration = Math.max(2.5, walkPathDistance / 1.15);
             const direction = walkTarget.clone().sub(walkStart).setY(0);
             cat.rotation.y = Math.atan2(direction.x, direction.z);
         }
@@ -604,7 +590,23 @@ if (!window.WebGLRenderingContext) {
             actionElapsed += delta;
 
             if (currentAction === 'walk' && walkStart !== undefined && walkTarget !== undefined) {
-                cat.position.lerpVectors(walkStart, walkTarget, Math.min(actionElapsed / actionDuration, 1));
+                let distanceTravelled = Math.min(actionElapsed / actionDuration, 1) * walkPathDistance;
+                let previousPoint = walkStart;
+
+                for (const point of walkPath) {
+                    const segmentLength = previousPoint.distanceTo(point);
+
+                    if (distanceTravelled <= segmentLength) {
+                        cat.position.lerpVectors(previousPoint, point, segmentLength === 0 ? 1 : distanceTravelled / segmentLength);
+                        const direction = point.clone().sub(previousPoint).setY(0);
+                        cat.rotation.y = Math.atan2(direction.x, direction.z);
+
+                        break;
+                    }
+
+                    distanceTravelled -= segmentLength;
+                    previousPoint = point;
+                }
             }
 
             if (selectedAnimation === undefined && actionElapsed >= actionDuration && currentAction === 'walk' && queuedAction !== undefined) {

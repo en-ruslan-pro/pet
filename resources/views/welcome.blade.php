@@ -18,7 +18,10 @@
             .glow--one { top: -24rem; left: -14rem; background: #824f2a; }
             .glow--two { right: -20rem; bottom: -22rem; background: #573821; }
             .content { position: relative; width: min(70rem, calc(100% - 3rem)); margin: 0 auto; padding: 2rem 0 4rem; }
+            .header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
             .brand { color: #f6c477; font-size: .8rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+            .about-link { color: rgb(255 249 238 / 68%); font-size: .9rem; text-decoration: none; }
+            .about-link:hover, .about-link:focus-visible { color: #f6c477; }
             .hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(16rem, .75fr); gap: clamp(2.5rem, 8vw, 7rem); align-items: center; min-height: calc(100vh - 7rem); }
             h1 { max-width: 12ch; margin: 1rem 0; font-family: Georgia, serif; font-size: clamp(3.2rem, 8vw, 6.5rem); font-weight: 400; line-height: .92; letter-spacing: -.05em; }
             .lead { max-width: 38rem; margin: 0; color: rgb(255 249 238 / 74%); font-size: clamp(1.05rem, 2vw, 1.25rem); line-height: 1.6; }
@@ -45,7 +48,10 @@
             <div class="glow glow--two"></div>
 
             <div class="content">
-                <span class="brand">Virtual Pet TV</span>
+                <header class="header">
+                    <span class="brand">Virtual Pet TV</span>
+                    <a class="about-link" href="{{ route('about') }}">О проекте</a>
+                </header>
 
                 <section class="hero">
                     <div>

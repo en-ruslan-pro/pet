@@ -35,34 +35,6 @@
                 height: 100vh;
             }
 
-            .demo-label {
-                position: fixed;
-                top: clamp(1.25rem, 3vw, 3rem);
-                left: clamp(1.25rem, 3vw, 3rem);
-                z-index: 1;
-                display: grid;
-                gap: 0.35rem;
-                pointer-events: none;
-            }
-
-            .demo-label__eyebrow {
-                margin: 0;
-                color: rgb(255 255 255 / 58%);
-                font-size: 0.7rem;
-                font-weight: 700;
-                letter-spacing: 0.18em;
-                text-transform: uppercase;
-            }
-
-            .demo-label__title {
-                margin: 0;
-                color: #fff9ee;
-                font-family: Georgia, serif;
-                font-size: clamp(2rem, 4vw, 4.2rem);
-                font-weight: 400;
-                line-height: 0.95;
-            }
-
             .demo-status {
                 position: fixed;
                 right: clamp(1.25rem, 3vw, 3rem);
@@ -202,34 +174,17 @@
                 text-align: center;
             }
 
-            .demo-credit {
-                position: fixed;
-                bottom: clamp(1.25rem, 3vw, 3rem);
-                left: clamp(1.25rem, 3vw, 3rem);
-                z-index: 1;
-                color: rgb(255 255 255 / 45%);
-                font-size: 0.6875rem;
-                text-decoration: none;
-            }
-
-            .demo-credit:hover,
-            .demo-credit:focus-visible {
-                color: #fff9ee;
-            }
         </style>
     </head>
     <body>
         <main id="pet-demo" aria-label="Virtual Pet TV: Мурка живёт в своей комнате"></main>
 
-        <div class="demo-label" aria-hidden="true">
-            <p class="demo-label__eyebrow">Virtual Pet TV · Demo</p>
-            <p class="demo-label__title">Мурка дома</p>
-        </div>
-
-        <div class="demo-status" aria-live="polite">
-            <span class="demo-status__dot"></span>
-            <span id="pet-action">Просыпается</span>
-        </div>
+        @if (request()->has('debug'))
+            <div class="demo-status" aria-live="polite">
+                <span class="demo-status__dot"></span>
+                <span id="pet-action">Просыпается</span>
+            </div>
+        @endif
 
         @if (request()->boolean('tv'))
             <aside class="demo-controls" aria-label="Настройка сцены" hidden>
@@ -240,6 +195,20 @@
                 <p class="demo-controls__title">Освещение</p>
                 <input id="demo-lighting" type="range" min="0.60" max="1.60" step="0.05" value="1.50" aria-label="Интенсивность освещения">
                 <output id="demo-lighting-value" class="demo-controls__value">1.50×</output>
+            </section>
+
+            <section class="demo-controls__section">
+                <label for="demo-character" class="demo-controls__title">Персонаж</label>
+                <select id="demo-character" @disabled($characters->isEmpty())>
+                    @forelse ($characters as $character)
+                        <option value="{{ $character->id }}" data-character='@json([
+                            'assetPath' => $character->petModel->asset_path,
+                            'enabledAnimationClips' => $character->enabled_animation_clips,
+                        ])'>{{ $character->name }}</option>
+                    @empty
+                        <option value="">Персонажи не найдены</option>
+                    @endforelse
+                </select>
             </section>
 
             <section class="demo-controls__section">
@@ -311,8 +280,5 @@
             </section>
         </aside>
 
-        <a class="demo-credit" href="https://sketchfab.com/3d-models/stripe-the-cat-rigged-and-animated-2e3030b71a6d4b219fdc7304f8e58013" target="_blank" rel="noreferrer">
-            Stripe the Cat — DreamNoms, CC BY 4.0
-        </a>
     </body>
 </html>

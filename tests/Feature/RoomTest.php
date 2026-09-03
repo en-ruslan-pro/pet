@@ -1,6 +1,8 @@
 <?php
 
 use App\Events\RoomCommandRequested;
+use App\Models\Character;
+use App\Models\PetModel;
 use App\Models\Room;
 use Illuminate\Contracts\Broadcasting\Factory as BroadcastingFactory;
 use Illuminate\Support\Facades\Broadcast;
@@ -9,7 +11,10 @@ use Illuminate\Support\Facades\Event;
 use function Pest\Laravel\mock;
 
 test('creates a room with a unique connection code', function () {
+    $character = Character::factory()->create(['default_name' => 'Мурка']);
+
     $response = $this->post(route('room.store'), [
+        'character_id' => $character->id,
         'pet_name' => 'Барсик',
     ]);
 
@@ -17,7 +22,45 @@ test('creates a room with a unique connection code', function () {
 
     $response->assertRedirect(route('room.show', $room));
     expect($room->pet_name)->toBe('Барсик');
+    expect($room->character->is($character))->toBeTrue();
     expect($room->code)->toMatch('/^[A-Z0-9]{6}$/');
+});
+
+test('creates a room with the character default name when no name is entered', function () {
+    $character = Character::factory()->create(['default_name' => 'Снежок']);
+
+    $response = $this->post(route('room.store'), [
+        'character_id' => $character->id,
+    ]);
+
+    $room = Room::query()->sole();
+
+    $response->assertRedirect(route('room.show', $room));
+    expect($room->pet_name)->toBe('Снежок');
+});
+
+test('shows available characters when creating a room', function () {
+    $character = Character::factory()->create([
+        'name' => 'Рыжий кот',
+        'default_name' => 'Рыжик',
+    ]);
+
+    $this->get(route('room.create'))
+        ->assertSee('Выберите персонажа')
+        ->assertSee('Рыжий кот')
+        ->assertSee('По умолчанию: Рыжик')
+        ->assertSee('name="character_id"', false);
+});
+
+test('requires an existing character when creating a room', function () {
+    $this->from(route('room.create'))
+        ->post(route('room.store'), [
+            'character_id' => 999,
+        ])
+        ->assertRedirect(route('room.create'))
+        ->assertSessionHasErrors('character_id');
+
+    $this->assertDatabaseEmpty('rooms');
 });
 
 test('shows a link to the new pet room', function () {
@@ -39,10 +82,35 @@ test('opens the tv room from its connection code and records the connection', fu
         ->assertOk()
         ->assertSee($room->pet_name)
         ->assertSee('data-tv-room', false)
+        ->assertDontSee('data-tv-room-status', false)
         ->assertSee('data-pet-needs', false)
         ->assertSee('tv=1');
 
     expect($room->fresh()->isTvConnected())->toBeTrue();
+});
+
+test('shows TV connection diagnostics only in debug mode', function () {
+    $room = Room::factory()->create(['code' => 'DEBUG1']);
+
+    $this->get(route('tv.show', [$room, 'debug' => 1]))
+        ->assertSee('data-tv-room-status', false)
+        ->assertSee('debug=1', false);
+});
+
+test('passes the selected character model and enabled animations to the tv scene', function () {
+    $model = PetModel::factory()->create([
+        'asset_path' => '/models/kaykit-adventurers/Knight.glb',
+    ]);
+    $character = Character::factory()->for($model)->create([
+        'enabled_animation_clips' => ['Idle', 'Walking_A'],
+    ]);
+    $room = Room::factory()->for($character)->create(['code' => 'CHAR01']);
+
+    $this->get(route('tv.show', $room))
+        ->assertSee('data-character', false)
+        ->assertSee('\\/models\\/kaykit-adventurers\\/Knight.glb', false)
+        ->assertSee('Walking_A')
+        ->assertSee('character=', false);
 });
 
 test('opens the tv room directly from the home page with a room code', function () {

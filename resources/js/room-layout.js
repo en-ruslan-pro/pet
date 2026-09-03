@@ -132,3 +132,55 @@ export const findWalkablePath = (from, to, layout = ROOM_LAYOUT) => {
 
     return null;
 };
+
+export const simplifyWalkPath = (path) => path.filter((point, index) => {
+    if (index === 0 || index === path.length - 1) {
+        return true;
+    }
+
+    const previous = path[index - 1];
+    const next = path[index + 1];
+    const incomingDirection = [Math.sign(point[0] - previous[0]), Math.sign(point[1] - previous[1])];
+    const outgoingDirection = [Math.sign(next[0] - point[0]), Math.sign(next[1] - point[1])];
+
+    return incomingDirection[0] !== outgoingDirection[0] || incomingDirection[1] !== outgoingDirection[1];
+});
+
+export const smoothAngle = (currentAngle, targetAngle, delta, turnSpeed = 7) => {
+    const angleDifference = (targetAngle - currentAngle + Math.PI) % (Math.PI * 2) - Math.PI;
+
+    return currentAngle + angleDifference * (1 - Math.exp(-turnSpeed * delta));
+};
+
+export const getBoundaryTurnTarget = ([x, z], layout = ROOM_LAYOUT, random = Math.random) => {
+    const innerBounds = {
+        minX: layout.bounds.minX + layout.catRadius,
+        maxX: layout.bounds.maxX - layout.catRadius,
+        minZ: layout.bounds.minZ + layout.catRadius,
+        maxZ: layout.bounds.maxZ - layout.catRadius,
+    };
+    const nearestBoundary = [
+        { side: 'left', distance: x - innerBounds.minX },
+        { side: 'right', distance: innerBounds.maxX - x },
+        { side: 'top', distance: z - innerBounds.minZ },
+        { side: 'bottom', distance: innerBounds.maxZ - z },
+    ].sort((left, right) => left.distance - right.distance)[0];
+
+    if (nearestBoundary.distance > 0.9) {
+        return null;
+    }
+
+    const turnDirection = random() < 0.5 ? -1 : 1;
+    const clampX = (value) => Math.max(innerBounds.minX + 1, Math.min(value, innerBounds.maxX - 1));
+    const clampZ = (value) => Math.max(innerBounds.minZ + 1, Math.min(value, innerBounds.maxZ - 1));
+
+    if (nearestBoundary.side === 'left' || nearestBoundary.side === 'right') {
+        const inwardX = nearestBoundary.side === 'left' ? x + 2.2 : x - 2.2;
+
+        return [clampX(inwardX), clampZ(z + turnDirection * 2.2)];
+    }
+
+    const inwardZ = nearestBoundary.side === 'top' ? z + 2.2 : z - 2.2;
+
+    return [clampX(x + turnDirection * 2.2), clampZ(inwardZ)];
+};

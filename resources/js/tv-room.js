@@ -8,6 +8,7 @@ if (tvRoom !== null) {
     const status = tvRoom.querySelector('[data-tv-room-status]');
     const frame = tvRoom.querySelector('iframe');
     const reverb = JSON.parse(tvRoom.dataset.reverb ?? '{}');
+    const character = JSON.parse(tvRoom.dataset.character ?? 'null');
     const petNeeds = JSON.parse(tvRoom.dataset.petNeeds ?? '{}');
     const sendToScene = (message) => frame?.contentWindow?.postMessage(message, window.location.origin);
 
@@ -46,7 +47,10 @@ if (tvRoom !== null) {
             }
         });
 
-    frame?.addEventListener('load', () => sendToScene({ action: 'sync-needs', needs: petNeeds }));
+    frame?.addEventListener('load', () => {
+        sendToScene({ action: 'sync-character', character });
+        sendToScene({ action: 'sync-needs', needs: petNeeds });
+    });
 
     heartbeat().then(() => {
         if (status !== null) {

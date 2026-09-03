@@ -56,4 +56,20 @@ class PetModel extends Model
     {
         return $this->hasMany(Pet::class);
     }
+
+    /** @return list<string> */
+    public function animationClipNames(): array
+    {
+        $clipNames = [];
+
+        foreach ($this->petModelActions()
+            ->where('is_available', true)
+            ->get() as $action) {
+            foreach ($action->animation_clips['primary'] ?? [] as $clip) {
+                $clipNames[] = $clip;
+            }
+        }
+
+        return array_values(array_unique($clipNames));
+    }
 }

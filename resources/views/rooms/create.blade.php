@@ -16,9 +16,28 @@
                 <form class="mt-8 grid gap-5" method="POST" action="{{ route('room.store') }}">
                     @csrf
 
+                    <fieldset class="grid gap-3">
+                        <legend class="font-medium text-stone-100">Выберите персонажа</legend>
+                        <div class="flex gap-3 overflow-x-auto pb-2">
+                            @foreach ($characters as $character)
+                                <label class="w-64 shrink-0 cursor-pointer">
+                                    <input class="peer sr-only" type="radio" name="character_id" value="{{ $character->id }}" data-default-name="{{ $character->default_name }}" @checked((string) old('character_id', $characters->first()?->id) === (string) $character->id) required>
+                                    <span class="grid min-h-28 gap-1 rounded-2xl border border-stone-700 bg-stone-950 p-4 transition peer-checked:border-amber-300 peer-checked:bg-amber-300/10 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-300">
+                                        <span class="font-semibold text-white">{{ $character->name }}</span>
+                                        <span class="text-sm text-stone-400">{{ $character->petModel->name }}</span>
+                                        <span class="text-sm text-amber-200">По умолчанию: {{ $character->default_name }}</span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </fieldset>
+                    @error('character_id')
+                        <p class="text-sm text-red-300">{{ $message }}</p>
+                    @enderror
+
                     <label class="grid gap-2" for="pet_name">
-                        <span class="font-medium text-stone-100">Имя питомца</span>
-                        <input id="pet_name" class="rounded-xl border border-stone-700 bg-stone-950 px-4 py-3 text-white outline-none ring-amber-300 transition focus:ring-2" type="text" name="pet_name" value="{{ old('pet_name', 'Мурка') }}" maxlength="30" required autofocus>
+                        <span class="font-medium text-stone-100">Имя питомца <span class="font-normal text-stone-400">(необязательно)</span></span>
+                        <input id="pet_name" class="rounded-xl border border-stone-700 bg-stone-950 px-4 py-3 text-white outline-none ring-amber-300 transition focus:ring-2" type="text" name="pet_name" value="{{ old('pet_name') }}" maxlength="30" placeholder="Будет использовано имя персонажа" autofocus>
                     </label>
                     @error('pet_name')
                         <p class="text-sm text-red-300">{{ $message }}</p>
@@ -30,5 +49,12 @@
                 <a class="mt-6 block text-center text-sm text-stone-400 underline hover:text-white" href="{{ route('tv.entry') }}">У меня уже есть код комнаты</a>
             </section>
         </main>
+        <script>
+            document.querySelectorAll('input[name="character_id"]').forEach((character) => {
+                character.addEventListener('change', () => {
+                    document.getElementById('pet_name').value = character.dataset.defaultName;
+                });
+            });
+        </script>
     </body>
 </html>

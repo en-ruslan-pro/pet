@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property array{primary?: list<string>}|null $animation_clips
+ */
 class PetModelAction extends Model
 {
     /** @use HasFactory<PetModelActionFactory> */

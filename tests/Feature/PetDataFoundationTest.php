@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Character;
 use App\Models\Pet;
 use App\Models\PetAction;
 use App\Models\PetModel;
@@ -17,6 +18,7 @@ test('seeds the cat model with its supported action configuration', function () 
     $sleep = $tabby->petModelActions()
         ->whereHas('petAction', fn ($query) => $query->where('key', 'sleep'))
         ->sole();
+    $character = Character::query()->where('name', 'Полосатая кошка')->sole();
 
     expect($cat->needs_configuration)->toBe([
         'hunger' => ['minimum' => 0, 'maximum' => 100],
@@ -26,6 +28,20 @@ test('seeds the cat model with its supported action configuration', function () 
     expect($sleep->animation_clips)->toBe(['primary' => ['Sleep', 'Rest']]);
     expect($sleep->execution_configuration)->toBe(['duration_seconds' => [9, 13]]);
     expect($sleep->interaction_points)->toBe(['room_item_key' => 'bed']);
+    expect($character->default_name)->toBe('Мурка');
+    expect($character->petModel->is($tabby))->toBeTrue();
+});
+
+test('seeds all KayKit adventurer characters with every animation enabled', function () {
+    $this->seed(PetCatalogSeeder::class);
+
+    $knight = Character::query()->where('name', 'Рыцарь')->sole();
+
+    expect($knight->petModel->asset_path)->toBe('/models/kaykit-adventurers/Knight.glb');
+    expect($knight->enabled_animation_clips)->toHaveCount(76);
+    expect($knight->enabled_animation_clips)->toContain('Idle', 'Walking_A', 'Spellcasting');
+    expect($knight->petModel->animationClipNames())->toEqual($knight->enabled_animation_clips);
+    expect(Character::query()->whereHas('petModel.type', fn ($query) => $query->where('key', 'adventurer'))->count())->toBe(5);
 });
 
 test('persists a pet and configured room item for a room', function () {

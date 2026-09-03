@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\DemoController;
 use App\Http\Controllers\RoomController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
-Route::view('demo', 'demo')->name('demo');
+Route::view('about', 'about')->name('about');
+Route::get('demo', [DemoController::class, 'show'])->name('demo');
 
 Route::get('room/create', [RoomController::class, 'create'])->name('room.create');
 Route::post('room/create', [RoomController::class, 'store'])->name('room.store');

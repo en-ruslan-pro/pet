@@ -12,9 +12,12 @@
         </style>
     </head>
     <body>
-        <main data-tv-room data-room-code="{{ $room->code }}" data-heartbeat-url="{{ route('tv.heartbeat', $room) }}" data-pet-needs='@json($room->petNeeds())' data-reverb='@json($reverb)'>
-            <iframe title="{{ $room->pet_name }} дома" src="{{ route('demo', ['tv' => 1]) }}"></iframe>
-            <p class="tv-room__status" data-tv-room-status>Подключаем {{ $room->pet_name }}</p>
+        @php($sceneCharacter = $character === null ? null : strtr(base64_encode(json_encode($character)), '+/', '-_'))
+        <main data-tv-room data-room-code="{{ $room->code }}" data-heartbeat-url="{{ route('tv.heartbeat', $room) }}" data-character='@json($character)' data-pet-needs='@json($room->petNeeds())' data-reverb='@json($reverb)'>
+            <iframe title="{{ $room->pet_name }} дома" src="{{ route('demo', ['tv' => 1, 'debug' => request()->has('debug'), 'character' => $sceneCharacter]) }}"></iframe>
+            @if (request()->has('debug'))
+                <p class="tv-room__status" data-tv-room-status>Подключаем {{ $room->pet_name }}</p>
+            @endif
         </main>
     </body>
 </html>

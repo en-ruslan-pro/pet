@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Events\RoomCommandRequested;
+use App\Models\Character;
 use App\Models\Room;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -15,16 +16,23 @@ class RoomController extends Controller
 {
     public function create(): View
     {
-        return view('rooms.create');
+        return view('rooms.create', [
+            'characters' => Character::query()
+                ->with('petModel')
+                ->orderBy('name')
+                ->get(),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'pet_name' => ['required', 'string', 'max:30'],
+            'character_id' => ['required', 'integer', 'exists:characters,id'],
+            'pet_name' => ['nullable', 'string', 'max:30'],
         ]);
 
-        $room = Room::createForPet($validated['pet_name']);
+        $character = Character::query()->whereKey($validated['character_id'])->firstOrFail();
+        $room = Room::createForCharacter($character, $validated['pet_name'] ?? null);
         $this->grantAccess($request, $room);
 
         return to_route('room.show', $room);
@@ -51,9 +59,14 @@ class RoomController extends Controller
         $this->grantAccess($request, $room);
         $room->refreshPetNeeds();
         $room->update(['tv_connected_at' => now()]);
+        $room->load('character.petModel');
 
         return view('tv.show', [
             'room' => $room,
+            'character' => $room->character === null ? null : [
+                'assetPath' => $room->character->petModel->asset_path,
+                'enabledAnimationClips' => $room->character->enabled_animation_clips,
+            ],
             'reverb' => [
                 'appKey' => config('broadcasting.connections.reverb.key'),
                 'host' => config('broadcasting.connections.reverb.options.host'),

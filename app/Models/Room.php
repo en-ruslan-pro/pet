@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\RoomFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -22,6 +23,7 @@ class Room extends Model
     protected $fillable = [
         'code',
         'pet_name',
+        'character_id',
         'tv_connected_at',
         'hunger',
         'energy',
@@ -38,7 +40,7 @@ class Room extends Model
         ];
     }
 
-    public static function createForPet(string $petName): self
+    public static function createForCharacter(Character $character, ?string $petName = null): self
     {
         do {
             $code = Str::upper(Str::random(6));
@@ -46,7 +48,8 @@ class Room extends Model
 
         return self::query()->create([
             'code' => $code,
-            'pet_name' => $petName,
+            'character_id' => $character->id,
+            'pet_name' => filled($petName) ? $petName : $character->default_name,
             'pet_needs_updated_at' => now(),
         ]);
     }
@@ -117,6 +120,12 @@ class Room extends Model
     public function pets(): HasMany
     {
         return $this->hasMany(Pet::class);
+    }
+
+    /** @return BelongsTo<Character, $this> */
+    public function character(): BelongsTo
+    {
+        return $this->belongsTo(Character::class);
     }
 
     /** @return HasMany<RoomItem, $this> */

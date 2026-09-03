@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { findWalkablePath, ROOM_LAYOUT } from './room-layout';
+import { findWalkablePath, getBoundaryTurnTarget, ROOM_LAYOUT, simplifyWalkPath, smoothAngle } from './room-layout';
 
 const container = document.querySelector('#pet-demo');
 const actionLabel = document.querySelector('#pet-action');
@@ -24,10 +24,29 @@ const cameraLightStrengthControl = document.querySelector('#demo-camera-light-st
 const cameraLightStrengthValue = document.querySelector('#demo-camera-light-strength-value');
 const hemisphereLightStrengthControl = document.querySelector('#demo-hemisphere-light-strength');
 const hemisphereLightStrengthValue = document.querySelector('#demo-hemisphere-light-strength-value');
+const characterControl = document.querySelector('#demo-character');
 const animationControl = document.querySelector('#demo-animation');
-const isTvMode = new URLSearchParams(window.location.search).has('tv');
+const sceneParameters = new URLSearchParams(window.location.search);
+const isTvMode = sceneParameters.has('tv');
+const initialCharacter = (() => {
+    const encodedCharacter = sceneParameters.get('character');
 
-if (container === null || actionLabel === null || lightingControl === null || lightingValue === null || cameraPositionValue === null || lightPositionValue === null || lightDistanceControl === null || lightDistanceValue === null || lightStrengthControl === null || lightStrengthValue === null || plantLightDistanceControl === null || plantLightDistanceValue === null || plantLightStrengthControl === null || plantLightStrengthValue === null || cameraLightDistanceControl === null || cameraLightDistanceValue === null || cameraLightStrengthControl === null || cameraLightStrengthValue === null || hemisphereLightStrengthControl === null || hemisphereLightStrengthValue === null || animationControl === null) {
+    if (encodedCharacter === null) {
+        return null;
+    }
+
+    try {
+        const character = JSON.parse(atob(encodedCharacter.replaceAll('-', '+').replaceAll('_', '/')));
+
+        return typeof character?.assetPath === 'string' && character.assetPath.startsWith('/models/')
+            ? character
+            : null;
+    } catch {
+        return null;
+    }
+})();
+
+if (container === null || actionLabel === null || lightingControl === null || lightingValue === null || cameraPositionValue === null || lightPositionValue === null || lightDistanceControl === null || lightDistanceValue === null || lightStrengthControl === null || lightStrengthValue === null || plantLightDistanceControl === null || plantLightDistanceValue === null || plantLightStrengthControl === null || plantLightStrengthValue === null || cameraLightDistanceControl === null || cameraLightDistanceValue === null || cameraLightStrengthControl === null || cameraLightStrengthValue === null || hemisphereLightStrengthControl === null || hemisphereLightStrengthValue === null || characterControl === null || animationControl === null) {
     throw new Error('The Virtual Pet TV demo container is missing.');
 }
 
@@ -335,6 +354,7 @@ if (!window.WebGLRenderingContext) {
     let selectedAnimation;
     let queuedAction;
     let pendingRemoteAction;
+    let requestedCharacterSignature;
 
     const behaviorTargets = {
         eat: 'foodBowl',
@@ -456,14 +476,15 @@ if (!window.WebGLRenderingContext) {
         if (nextAction === 'walk' && cat !== undefined) {
             walkStart = cat.position.clone();
             const randomTarget = walkTargets[Math.floor(Math.random() * walkTargets.length)];
-            const target = options.target ?? toSceneVector(randomTarget);
+            const boundaryTurnTarget = options.target === undefined
+                ? getBoundaryTurnTarget([walkStart.x, walkStart.z])
+                : null;
+            const target = options.target ?? toSceneVector(boundaryTurnTarget ?? randomTarget);
             const path = findWalkablePath([walkStart.x, walkStart.z], [target.x, target.z]);
-            walkPath = path?.map(([x, z]) => new THREE.Vector3(x, 0, z)) ?? [];
+            walkPath = simplifyWalkPath(path ?? []).map(([x, z]) => new THREE.Vector3(x, 0, z));
             walkTarget = walkPath.at(-1) ?? walkStart;
             walkPathDistance = walkPath.reduce((total, point, index) => total + (index === 0 ? walkStart : walkPath[index - 1]).distanceTo(point), 0);
             actionDuration = Math.max(2.5, walkPathDistance / 1.15);
-            const direction = walkTarget.clone().sub(walkStart).setY(0);
-            cat.rotation.y = Math.atan2(direction.x, direction.z);
         }
     };
 
@@ -524,6 +545,32 @@ if (!window.WebGLRenderingContext) {
         actionLabel.textContent = `Анимация: ${selectedAnimation.name}`;
     });
 
+    const selectedCharacter = () => {
+        const serializedCharacter = characterControl.selectedOptions[0]?.dataset.character;
+
+        if (serializedCharacter === undefined) {
+            return null;
+        }
+
+        try {
+            const character = JSON.parse(serializedCharacter);
+
+            return typeof character?.assetPath === 'string' && character.assetPath.startsWith('/models/')
+                ? character
+                : null;
+        } catch {
+            return null;
+        }
+    };
+
+    characterControl.addEventListener('change', () => {
+        const character = selectedCharacter();
+
+        if (character !== null) {
+            loadCharacter(character.assetPath, character.enabledAnimationClips);
+        }
+    });
+
     window.addEventListener('message', (event) => {
         if (event.origin !== window.location.origin) {
             return;
@@ -541,12 +588,35 @@ if (!window.WebGLRenderingContext) {
             return;
         }
 
+        if (event.data?.action === 'sync-character' && event.data.character?.assetPath) {
+            loadCharacter(event.data.character.assetPath, event.data.character.enabledAnimationClips);
+
+            return;
+        }
+
         performRemoteAction(event.data?.action, event.data?.needs);
     });
 
-    new GLTFLoader().load(
-        '/models/stripe-the-cat.glb',
+    const loadCharacter = (assetPath, enabledAnimationClips = null) => {
+        const characterSignature = JSON.stringify([assetPath, enabledAnimationClips]);
+
+        if (requestedCharacterSignature === characterSignature) {
+            return;
+        }
+
+        requestedCharacterSignature = characterSignature;
+        new GLTFLoader().load(
+            assetPath,
         (gltf) => {
+            if (requestedCharacterSignature !== characterSignature) {
+                return;
+            }
+
+            if (cat !== undefined) {
+                room.remove(cat);
+                mixer?.stopAllAction();
+            }
+
             cat = gltf.scene;
             const bounds = new THREE.Box3().setFromObject(cat);
             const size = bounds.getSize(new THREE.Vector3());
@@ -563,14 +633,17 @@ if (!window.WebGLRenderingContext) {
             room.add(cat);
 
             mixer = new THREE.AnimationMixer(cat);
-            cat.userData.animationClips = gltf.animations;
-            animationClips = gltf.animations;
+            animationClips = enabledAnimationClips === null
+                ? gltf.animations
+                : gltf.animations.filter((clip) => enabledAnimationClips.includes(clip.name));
+            cat.userData.animationClips = animationClips;
+            animationControl.options.length = 1;
             animationClips.forEach((clip, index) => {
                 const option = new Option(clip.name || `Анимация ${index + 1}`, String(index));
                 animationControl.add(option);
             });
             animationControl.disabled = animationClips.length === 0;
-            setAction('idle', gltf.animations);
+            setAction('idle', animationClips);
 
             if (pendingRemoteAction !== undefined) {
                 performRemoteAction(pendingRemoteAction);
@@ -581,6 +654,14 @@ if (!window.WebGLRenderingContext) {
         () => {
             actionLabel.textContent = 'Не удалось загрузить модель';
         },
+        );
+    };
+
+    const defaultCharacter = isTvMode ? null : selectedCharacter();
+
+    loadCharacter(
+        initialCharacter?.assetPath ?? defaultCharacter?.assetPath ?? '/models/stripe-the-cat.glb',
+        initialCharacter?.enabledAnimationClips ?? defaultCharacter?.enabledAnimationClips ?? null,
     );
 
     const timer = new THREE.Timer();
@@ -605,7 +686,8 @@ if (!window.WebGLRenderingContext) {
                     if (distanceTravelled <= segmentLength) {
                         cat.position.lerpVectors(previousPoint, point, segmentLength === 0 ? 1 : distanceTravelled / segmentLength);
                         const direction = point.clone().sub(previousPoint).setY(0);
-                        cat.rotation.y = Math.atan2(direction.x, direction.z);
+                        const targetRotation = Math.atan2(direction.x, direction.z);
+                        cat.rotation.y = smoothAngle(cat.rotation.y, targetRotation, delta);
 
                         break;
                     }

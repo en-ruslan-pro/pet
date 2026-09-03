@@ -3,8 +3,21 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const container = document.querySelector('#pet-demo');
 const actionLabel = document.querySelector('#pet-action');
+const lightingControl = document.querySelector('#demo-lighting');
+const lightingValue = document.querySelector('#demo-lighting-value');
+const cameraPositionValue = document.querySelector('#demo-camera-position');
+const cameraControls = document.querySelectorAll('[data-camera-axis]');
+const lightPositionValue = document.querySelector('#demo-light-position');
+const lightControls = document.querySelectorAll('[data-light-axis]');
+const lightDistanceControl = document.querySelector('#demo-light-distance');
+const lightDistanceValue = document.querySelector('#demo-light-distance-value');
+const cameraLightDistanceControl = document.querySelector('#demo-camera-light-distance');
+const cameraLightDistanceValue = document.querySelector('#demo-camera-light-distance-value');
+const cameraLightStrengthControl = document.querySelector('#demo-camera-light-strength');
+const cameraLightStrengthValue = document.querySelector('#demo-camera-light-strength-value');
+const animationControl = document.querySelector('#demo-animation');
 
-if (container === null || actionLabel === null) {
+if (container === null || actionLabel === null || lightingControl === null || lightingValue === null || cameraPositionValue === null || lightPositionValue === null || lightDistanceControl === null || lightDistanceValue === null || cameraLightDistanceControl === null || cameraLightDistanceValue === null || cameraLightStrengthControl === null || cameraLightStrengthValue === null || animationControl === null) {
     throw new Error('The Virtual Pet TV demo container is missing.');
 }
 
@@ -16,8 +29,9 @@ if (!window.WebGLRenderingContext) {
     scene.fog = new THREE.Fog('#211f1b', 10, 24);
 
     const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(8.5, 5.8, 9.5);
-    camera.lookAt(1.2, 1.3, -0.3);
+    const cameraTarget = new THREE.Vector3(1.2, 1.3, -0.3);
+    camera.position.set(7.25, 3.8, 9.75);
+    camera.lookAt(cameraTarget);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
@@ -57,12 +71,8 @@ if (!window.WebGLRenderingContext) {
 
     const roomAssets = [
         { file: 'frames', position: [-3.4, -6.35], span: 2.8, elevation: 3.7 },
-        { file: 'shelf', position: [1.3, -6.28], span: 1.7, elevation: 3.1 },
-        { file: 'shelf', position: [4.2, -6.28], span: 1.7, elevation: 3.1 },
-        { file: 'simple_desk_A', position: [-7.25, -2.3], rotation: Math.PI / 2, span: 2.6 },
-        { file: 'simple_chair', position: [-5.7, -2.3], rotation: -Math.PI / 2, span: 1.15 },
         { file: 'couch', position: [3.7, -4.65], rotationX: Math.PI / 2, span: 3.7 },
-        { file: 'armchair', position: [-7.15, 1.05], rotationZ: Math.PI / 2, span: 1.55 },
+        { file: 'armchair', position: [-7.15, 1.05], rotationX: Math.PI / 2, span: 1.55 },
         { file: 'simple_library_A', position: [6.8, -5.35], rotation: -Math.PI / 2, span: 2.15 },
         { file: 'lamp', position: [5.8, -2.95], span: 1.25 },
         { file: 'plant', position: [-6.9, -4.8], rotation: Math.PI / 4, span: 1.45 },
@@ -103,11 +113,93 @@ if (!window.WebGLRenderingContext) {
 
     roomAssets.forEach(addRoomAsset);
 
-    const warmLight = new THREE.PointLight('#ffb85f', 95, 15, 2);
-    warmLight.position.set(-3.5, 5.5, -3.5);
-    warmLight.castShadow = true;
-    scene.add(warmLight);
-    scene.add(new THREE.HemisphereLight('#f5d6aa', '#30251e', 2.35));
+    const roomLight = new THREE.PointLight('#ffb85f', 95, 15, 2);
+    roomLight.position.set(0, 7, 0);
+    roomLight.castShadow = true;
+    scene.add(roomLight);
+    const cameraLight = new THREE.SpotLight('#ffe5bd', 0.9, 18, 0.8, 0.45, 2);
+    cameraLight.position.copy(camera.position);
+    cameraLight.target.position.copy(cameraTarget);
+    scene.add(cameraLight);
+    scene.add(cameraLight.target);
+    const hemisphereLight = new THREE.HemisphereLight('#f5d6aa', '#30251e', 2.35);
+    scene.add(hemisphereLight);
+
+    const lightingDefaults = {
+        exposure: 1.12,
+        hemisphereIntensity: 2.35,
+        roomLightIntensity: 95,
+    };
+    let lightingLevel = 1;
+
+    const updateLighting = () => {
+        lightingLevel = Number(lightingControl.value);
+
+        renderer.toneMappingExposure = lightingDefaults.exposure * lightingLevel;
+        roomLight.intensity = lightingDefaults.roomLightIntensity * lightingLevel;
+        hemisphereLight.intensity = lightingDefaults.hemisphereIntensity * lightingLevel;
+        lightingValue.textContent = `${lightingLevel.toFixed(2)}×`;
+        updateCameraLight();
+    };
+
+    const updateCameraPosition = () => {
+        camera.lookAt(cameraTarget);
+        cameraPositionValue.textContent = `X ${camera.position.x.toFixed(2)} · Y ${camera.position.y.toFixed(2)} · Z ${camera.position.z.toFixed(2)}`;
+    };
+
+    const updateLightPosition = () => {
+        lightPositionValue.textContent = `X ${roomLight.position.x.toFixed(2)} · Y ${roomLight.position.y.toFixed(2)} · Z ${roomLight.position.z.toFixed(2)}`;
+    };
+
+    const updateLightDistance = () => {
+        roomLight.distance = Number(lightDistanceControl.value);
+        lightDistanceValue.textContent = roomLight.distance.toFixed(1);
+    };
+
+    const updateCameraLight = () => {
+        cameraLight.distance = Number(cameraLightDistanceControl.value);
+        cameraLight.intensity = Number(cameraLightStrengthControl.value) * lightingLevel;
+        cameraLightDistanceValue.textContent = cameraLight.distance.toFixed(1);
+        cameraLightStrengthValue.textContent = cameraLightStrengthControl.value;
+    };
+
+    lightingControl.addEventListener('input', updateLighting);
+    lightDistanceControl.addEventListener('input', updateLightDistance);
+    cameraLightDistanceControl.addEventListener('input', updateCameraLight);
+    cameraLightStrengthControl.addEventListener('input', updateCameraLight);
+    cameraControls.forEach((control) => {
+        control.addEventListener('click', () => {
+            const axis = control.dataset.cameraAxis;
+            const direction = Number(control.dataset.cameraDirection);
+
+            if (axis === undefined || !Number.isFinite(direction)) {
+                return;
+            }
+
+            camera.position[axis] += direction * 0.25;
+            cameraLight.position.copy(camera.position);
+            updateCameraPosition();
+        });
+    });
+    lightControls.forEach((control) => {
+        control.addEventListener('click', () => {
+            const axis = control.dataset.lightAxis;
+            const direction = Number(control.dataset.lightDirection);
+
+            if (axis === undefined || !Number.isFinite(direction)) {
+                return;
+            }
+
+            roomLight.position[axis] += direction * 0.25;
+            updateLightPosition();
+        });
+    });
+
+    updateLighting();
+    updateCameraPosition();
+    updateLightPosition();
+    updateLightDistance();
+    updateCameraLight();
 
     const actionNames = { idle: 'Отдыхает', walk: 'Гуляет', sit: 'Наблюдает' };
     const actionDurations = { idle: [5, 15], walk: [4, 7], sit: [5, 10] };
@@ -126,6 +218,8 @@ if (!window.WebGLRenderingContext) {
     let actionDuration = 8;
     let walkStart;
     let walkTarget;
+    let animationClips = [];
+    let selectedAnimation;
 
     const randomDuration = ([minimum, maximum]) => minimum + Math.random() * (maximum - minimum);
     const findAnimationClip = (clips, candidates) => clips.find((clip) => candidates.some((candidate) => clip.name.toLowerCase().includes(candidate)));
@@ -169,6 +263,21 @@ if (!window.WebGLRenderingContext) {
         }
     };
 
+    animationControl.addEventListener('change', () => {
+        const selectedIndex = Number(animationControl.value);
+
+        if (animationControl.value === '' || !Number.isInteger(selectedIndex) || animationClips[selectedIndex] === undefined) {
+            selectedAnimation = undefined;
+            setAction(currentAction, animationClips);
+
+            return;
+        }
+
+        selectedAnimation = animationClips[selectedIndex];
+        playAnimation(selectedAnimation);
+        actionLabel.textContent = `Анимация: ${selectedAnimation.name}`;
+    });
+
     new GLTFLoader().load(
         '/models/stripe-the-cat.glb',
         (gltf) => {
@@ -189,6 +298,12 @@ if (!window.WebGLRenderingContext) {
 
             mixer = new THREE.AnimationMixer(cat);
             cat.userData.animationClips = gltf.animations;
+            animationClips = gltf.animations;
+            animationClips.forEach((clip, index) => {
+                const option = new Option(clip.name || `Анимация ${index + 1}`, String(index));
+                animationControl.add(option);
+            });
+            animationControl.disabled = animationClips.length === 0;
             setAction('idle', gltf.animations);
         },
         undefined,
@@ -212,7 +327,7 @@ if (!window.WebGLRenderingContext) {
                 cat.position.lerpVectors(walkStart, walkTarget, Math.min(actionElapsed / actionDuration, 1));
             }
 
-            if (actionElapsed >= actionDuration) {
+            if (selectedAnimation === undefined && actionElapsed >= actionDuration) {
                 const availableActions = ['idle', 'walk', 'sit'].filter((action) => action !== currentAction);
                 setAction(availableActions[Math.floor(Math.random() * availableActions.length)], cat.userData.animationClips);
             }

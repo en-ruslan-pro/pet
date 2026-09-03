@@ -19,5 +19,5 @@ Restore the failing profile and security tests in GitHub Actions.
 ## Result and verification
 
 - Changed areas: profile and security feature tests.
-- Verification: `APP_ENV=testing vendor/bin/pest --compact` — 49 tests passed.
+- Verification: `APP_ENV=testing vendor/bin/pest --compact` — 49 tests passed; `vendor/bin/phpstan analyse` — no errors; `vendor/bin/pint --dirty --format agent` completed successfully.
 - Follow-up: do not deploy `bootstrap/cache/routes-v7.php`; the deployment workflow clears Laravel caches after each release.

@@ -100,6 +100,10 @@
                 backdrop-filter: blur(0.75rem);
             }
 
+            .demo-controls[hidden] {
+                display: none;
+            }
+
             .demo-controls__section {
                 display: grid;
                 gap: 0.55rem;

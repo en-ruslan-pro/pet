@@ -47,6 +47,15 @@ test('sends the meow command to the private room channel', function () {
     });
 });
 
+test('shows the room code without a qr code on the controller', function () {
+    $room = Room::factory()->create(['code' => 'CODE01']);
+
+    $this->get(route('room.show', $room))
+        ->assertOk()
+        ->assertSee('CODE01')
+        ->assertDontSee('data-room-qr', false);
+});
+
 test('authorizes the private room channel after the room is opened in the browser session', function () {
     config([
         'broadcasting.default' => 'reverb',

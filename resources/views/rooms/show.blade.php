@@ -11,10 +11,9 @@
         <main class="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center px-6 py-12" data-room-controller data-status-url="{{ route('room.status', $room) }}" data-meow-url="{{ route('room.meow', $room) }}">
             <p class="text-sm font-semibold uppercase tracking-[0.2em] text-amber-300">Комната {{ $room->code }}</p>
             <h1 class="mt-3 text-4xl font-semibold text-white">{{ $room->pet_name }}</h1>
-            <p class="mt-3 text-stone-300">Откройте TV Mode и введите код комнаты или покажите QR-код телевизору.</p>
+            <p class="mt-3 text-stone-300">Откройте TV Mode на телевизоре и введите код комнаты.</p>
 
             <section class="mt-8 grid gap-6 rounded-3xl border border-amber-200/15 bg-stone-900 p-6 shadow-2xl shadow-black/30">
-                <canvas class="mx-auto rounded-xl bg-white p-3" data-room-qr data-controller-url="{{ route('room.show', $room) }}" aria-label="QR-код для открытия контроллера"></canvas>
                 <p class="text-center font-mono text-3xl font-bold tracking-[0.3em] text-amber-300">{{ $room->code }}</p>
 
                 <div class="flex items-center justify-between rounded-xl bg-stone-950 px-4 py-3">

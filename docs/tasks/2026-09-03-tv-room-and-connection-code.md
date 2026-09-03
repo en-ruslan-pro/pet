@@ -22,3 +22,7 @@
 - Изменённые области: комнаты и realtime-событие в `app`, миграция, фабрика и сидер, маршруты, TV/контроллерные Blade-шаблоны, Vite-модули и зависимости.
 - Проверки: `APP_ENV=testing vendor/bin/pest tests/Feature/RoomTest.php tests/Feature/DemoTest.php --compact`, `npm run build`, `vendor/bin/pint --dirty --format agent` и `git diff --check`.
 - Для работы между устройствами нужно запустить `php artisan reverb:start` и задать в `.env` доступный телевизору `REVERB_HOST`.
+
+## Уточнение интерфейса
+
+- QR-код удалён: текущий сценарий подключения использует ручной ввод кода комнаты на TV.

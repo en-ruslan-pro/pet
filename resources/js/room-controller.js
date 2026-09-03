@@ -1,5 +1,3 @@
-import QRCode from 'qrcode';
-
 const controller = document.querySelector('[data-room-controller]');
 
 if (controller !== null) {
@@ -7,7 +5,6 @@ if (controller !== null) {
     const statusDot = status?.querySelector('span');
     const commandStatus = controller.querySelector('[data-command-status]');
     const meowButton = controller.querySelector('[data-meow-button]');
-    const qrCanvas = controller.querySelector('[data-room-qr]');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
     const request = async (url, options = {}) => fetch(url, {
@@ -31,10 +28,6 @@ if (controller !== null) {
         statusDot.className = `h-2.5 w-2.5 rounded-full ${connected ? 'bg-emerald-400' : 'bg-stone-500'}`;
         status.lastChild.textContent = connected ? 'Телевизор подключён' : 'Телевизор не подключён';
     };
-
-    if (qrCanvas instanceof HTMLCanvasElement && qrCanvas.dataset.controllerUrl !== undefined) {
-        QRCode.toCanvas(qrCanvas, qrCanvas.dataset.controllerUrl, { margin: 1, width: 260 });
-    }
 
     meowButton?.addEventListener('click', async () => {
         meowButton.disabled = true;

@@ -104,6 +104,7 @@ class RoomController extends Controller
                 'feed' => "{$room->pet_name} идёт к миске.",
                 'play' => "{$room->pet_name} идёт играть.",
                 'sleep' => "{$room->pet_name} идёт отдыхать.",
+                default => throw new \LogicException("Unsupported pet action: {$action}"),
             },
             'needs' => $room->petNeeds(),
         ]);

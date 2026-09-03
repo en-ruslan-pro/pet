@@ -13,14 +13,19 @@ test('profile page is displayed', function () {
 test('profile information can be updated', function () {
     $user = User::factory()->create();
 
-    $this->actingAs($user);
+    $component = Livewire::actingAs($user)
+        ->test(Profile::class);
 
-    $response = Livewire::test(Profile::class)
+    $component->assertSet('name', $user->name);
+
+    $response = $component
         ->set('name', 'Test User')
         ->set('email', 'test@example.com')
         ->call('updateProfileInformation');
 
-    $response->assertHasNoErrors();
+    $response
+        ->assertOk()
+        ->assertHasNoErrors();
 
     $user->refresh();
 
@@ -32,9 +37,8 @@ test('profile information can be updated', function () {
 test('email verification status is unchanged when email address is unchanged', function () {
     $user = User::factory()->create();
 
-    $this->actingAs($user);
-
-    $response = Livewire::test(Profile::class)
+    $response = Livewire::actingAs($user)
+        ->test(Profile::class)
         ->set('name', 'Test User')
         ->set('email', $user->email)
         ->call('updateProfileInformation');
@@ -47,9 +51,8 @@ test('email verification status is unchanged when email address is unchanged', f
 test('user can delete their account', function () {
     $user = User::factory()->create();
 
-    $this->actingAs($user);
-
-    $response = Livewire::test('settings.delete-user-form')
+    $response = Livewire::actingAs($user)
+        ->test('settings.delete-user-form')
         ->set('password', 'password')
         ->call('deleteUser');
 
@@ -64,9 +67,8 @@ test('user can delete their account', function () {
 test('correct password must be provided to delete account', function () {
     $user = User::factory()->create();
 
-    $this->actingAs($user);
-
-    $response = Livewire::test('settings.delete-user-form')
+    $response = Livewire::actingAs($user)
+        ->test('settings.delete-user-form')
         ->set('password', 'wrong-password')
         ->call('deleteUser');
 

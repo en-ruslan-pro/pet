@@ -108,6 +108,12 @@ test('forbids pet care commands before the room is opened in the browser session
     Event::assertNotDispatched(RoomCommandRequested::class);
 });
 
+test('returns 404 for an unsupported pet care action', function () {
+    $room = Room::factory()->create(['code' => 'ACTION1']);
+
+    $this->postJson(route('room.actions', [$room, 'dance']))->assertNotFound();
+});
+
 test('does not change pet needs when the realtime command cannot be broadcast', function () {
     $room = Room::factory()->create([
         'code' => 'FAIL01',

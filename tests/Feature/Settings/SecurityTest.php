@@ -66,9 +66,8 @@ test('two factor authentication disabled when confirmation abandoned between req
         'two_factor_confirmed_at' => null,
     ])->save();
 
-    $this->actingAs($user);
-
-    $component = Livewire::test(Security::class);
+    $component = Livewire::actingAs($user)
+        ->test(Security::class);
 
     $component->assertSet('twoFactorEnabled', false);
 
@@ -84,9 +83,8 @@ test('password can be updated', function () {
         'password' => Hash::make('password'),
     ]);
 
-    $this->actingAs($user);
-
-    $response = Livewire::test(Security::class)
+    $response = Livewire::actingAs($user)
+        ->test(Security::class)
         ->set('current_password', 'password')
         ->set('password', 'new-password')
         ->set('password_confirmation', 'new-password')
@@ -102,9 +100,8 @@ test('correct password must be provided to update password', function () {
         'password' => Hash::make('password'),
     ]);
 
-    $this->actingAs($user);
-
-    $response = Livewire::test(Security::class)
+    $response = Livewire::actingAs($user)
+        ->test(Security::class)
         ->set('current_password', 'wrong-password')
         ->set('password', 'new-password')
         ->set('password_confirmation', 'new-password')

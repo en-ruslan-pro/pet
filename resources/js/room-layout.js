@@ -14,7 +14,7 @@ export const ROOM_LAYOUT = {
     objects: [
         { id: 'foodBowl', position: [2.8, 1.55], width: 0.96, depth: 0.96, catCanEnter: true },
         { id: 'waterBowl', position: [3.85, 1.55], width: 0.96, depth: 0.96, catCanEnter: true },
-        { id: 'scratchingPost', position: [-0.5, -5.65], width: 1.24, depth: 1.24, interactionPoint: [-1.75, -4.5] },
+        { id: 'scratchingPost', position: [-0.5, -5.65], width: 1.24, depth: 1.24, interactionPoint: [-1.75, -4.5], catCanEnter: false },
         { id: 'ball', position: [-0.3, 2.15], width: 0.52, depth: 0.52, catCanEnter: true, allowsItemOverlap: true },
         { id: 'toyMouse', position: [-1.15, 2.8], width: 0.44, depth: 0.44, catCanEnter: true, allowsItemOverlap: true },
     ],

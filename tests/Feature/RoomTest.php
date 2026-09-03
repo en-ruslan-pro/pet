@@ -20,6 +20,14 @@ test('creates a room with a unique connection code', function () {
     expect($room->code)->toMatch('/^[A-Z0-9]{6}$/');
 });
 
+test('shows a link to the new pet room', function () {
+    $room = Room::factory()->create(['code' => 'ROOM01']);
+
+    $this->get(route('room.show', $room))
+        ->assertSee('Открыть комнату')
+        ->assertSee('href="'.route('tv.show', $room).'"', false);
+});
+
 test('opens the tv room from its connection code and records the connection', function () {
     $room = Room::factory()->create(['code' => 'TV1234']);
 

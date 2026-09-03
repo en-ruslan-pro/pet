@@ -25,6 +25,7 @@ const cameraLightStrengthValue = document.querySelector('#demo-camera-light-stre
 const hemisphereLightStrengthControl = document.querySelector('#demo-hemisphere-light-strength');
 const hemisphereLightStrengthValue = document.querySelector('#demo-hemisphere-light-strength-value');
 const animationControl = document.querySelector('#demo-animation');
+const isTvMode = new URLSearchParams(window.location.search).has('tv');
 
 if (container === null || actionLabel === null || lightingControl === null || lightingValue === null || cameraPositionValue === null || lightPositionValue === null || lightDistanceControl === null || lightDistanceValue === null || lightStrengthControl === null || lightStrengthValue === null || plantLightDistanceControl === null || plantLightDistanceValue === null || plantLightStrengthControl === null || plantLightStrengthValue === null || cameraLightDistanceControl === null || cameraLightDistanceValue === null || cameraLightStrengthControl === null || cameraLightStrengthValue === null || hemisphereLightStrengthControl === null || hemisphereLightStrengthValue === null || animationControl === null) {
     throw new Error('The Virtual Pet TV demo container is missing.');
@@ -45,7 +46,7 @@ if (!window.WebGLRenderingContext) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = !isTvMode;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
@@ -180,7 +181,7 @@ if (!window.WebGLRenderingContext) {
     addInteractionMesh(toyMouse, 'toyMouse', 0.22);
 
     const roomLights = [
-        { color: '#ffb85f', intensity: 95, distance: 15, position: [0, 7, 0], castsShadow: true },
+        { color: '#ffb85f', intensity: 95, distance: 15, position: [0, 7, 0], castsShadow: !isTvMode },
         { color: '#ffc878', intensity: 110, distance: 9, position: [-7.15, 7.25, -5.15] },
     ].map(({ color, intensity, distance, position, castsShadow = false }) => {
         const light = new THREE.PointLight(color, intensity, distance, 2);
@@ -198,6 +199,11 @@ if (!window.WebGLRenderingContext) {
     scene.add(cameraLight.target);
     const hemisphereLight = new THREE.HemisphereLight('#f5d6aa', '#30251e', 2.35);
     scene.add(hemisphereLight);
+
+    if (isTvMode) {
+        plantCornerLight.visible = false;
+        cameraLight.visible = false;
+    }
 
     const lightingDefaults = {
         exposure: 1.12,

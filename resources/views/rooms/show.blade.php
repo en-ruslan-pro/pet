@@ -16,6 +16,8 @@
             <section class="mt-8 grid gap-6 rounded-3xl border border-amber-200/15 bg-stone-900 p-6 shadow-2xl shadow-black/30">
                 <p class="text-center font-mono text-3xl font-bold tracking-[0.3em] text-amber-300">{{ $room->code }}</p>
 
+                <a class="rounded-xl border border-amber-300 px-4 py-3 text-center font-semibold text-amber-300 transition hover:bg-amber-300 hover:text-stone-950" href="{{ route('tv.show', $room) }}">Открыть комнату</a>
+
                 <div class="flex items-center justify-between rounded-xl bg-stone-950 px-4 py-3">
                     <span class="text-sm text-stone-300">Телевизор</span>
                     <span class="flex items-center gap-2 text-sm font-medium" data-tv-status><span class="h-2.5 w-2.5 rounded-full bg-stone-500"></span>Проверяем связь</span>

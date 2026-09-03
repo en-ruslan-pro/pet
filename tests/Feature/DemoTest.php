@@ -33,6 +33,17 @@ test('hides scene controls in tv mode', function () {
         ->assertSee('.demo-controls[hidden]');
 });
 
+test('uses lower-cost lighting in tv mode', function () {
+    $scene = file_get_contents(resource_path('js/demo.js'));
+
+    expect($scene)
+        ->toContain("const isTvMode = new URLSearchParams(window.location.search).has('tv');")
+        ->toContain('renderer.shadowMap.enabled = !isTvMode;')
+        ->toContain('castsShadow: !isTvMode')
+        ->toContain('plantCornerLight.visible = false;')
+        ->toContain('cameraLight.visible = false;');
+});
+
 test('excludes the removed crib and generated window from the room scene', function () {
     $scene = file_get_contents(resource_path('js/demo.js'));
 
@@ -47,7 +58,7 @@ test('room layout prevents unapproved item intersections and keeps cat routes in
         'node',
         '--input-type=module',
         '--eval',
-        'import { findWalkablePath, getRoomItemOverlaps, isWalkablePosition, ROOM_LAYOUT } from "./resources/js/room-layout.js"; const overlappingLayout = { ...ROOM_LAYOUT, assets: [{ id: "chair", position: [0, 0], width: 2, depth: 2 }], objects: [{ id: "table", position: [0.5, 0], width: 2, depth: 2 }] }; const path = findWalkablePath([0, 0.35], [2.8, 1.55]); console.log(JSON.stringify({ overlaps: getRoomItemOverlaps(), detected: getRoomItemOverlaps(overlappingLayout), pathIsWalkable: path.every((point) => isWalkablePosition(point)), hasDiagonalStep: path.slice(1).some((point, index) => point[0] !== path[index][0] && point[1] !== path[index][1]) }));',
+        'import { findWalkablePath, getRoomItemOverlaps, isWalkablePosition, ROOM_LAYOUT } from "./resources/js/room-layout.js"; const overlappingLayout = { ...ROOM_LAYOUT, assets: [{ id: "chair", position: [0, 0], width: 2, depth: 2 }], objects: [{ id: "table", position: [0.5, 0], width: 2, depth: 2 }] }; const path = findWalkablePath([0, 0.35], [2.8, 1.55]); const scratchingPost = ROOM_LAYOUT.objects.find(({ id }) => id === "scratchingPost"); console.log(JSON.stringify({ overlaps: getRoomItemOverlaps(), detected: getRoomItemOverlaps(overlappingLayout), pathIsWalkable: path.every((point) => isWalkablePosition(point)), hasDiagonalStep: path.slice(1).some((point, index) => point[0] !== path[index][0] && point[1] !== path[index][1]), scratchingPostBlocksCat: scratchingPost.catCanEnter === false }));',
     ], base_path());
 
     $process->mustRun();
@@ -58,5 +69,6 @@ test('room layout prevents unapproved item intersections and keeps cat routes in
             'detected' => [['chair', 'table']],
             'pathIsWalkable' => true,
             'hasDiagonalStep' => true,
+            'scratchingPostBlocksCat' => true,
         ]);
 });

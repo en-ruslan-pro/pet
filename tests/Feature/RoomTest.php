@@ -2,8 +2,11 @@
 
 use App\Events\RoomCommandRequested;
 use App\Models\Room;
+use Illuminate\Contracts\Broadcasting\Factory as BroadcastingFactory;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Event;
+
+use function Pest\Laravel\mock;
 
 test('creates a room with a unique connection code', function () {
     $response = $this->post(route('room.store'), [
@@ -28,6 +31,7 @@ test('opens the tv room from its connection code and records the connection', fu
         ->assertOk()
         ->assertSee($room->pet_name)
         ->assertSee('data-tv-room', false)
+        ->assertSee('data-pet-needs', false)
         ->assertSee('tv=1');
 
     expect($room->fresh()->isTvConnected())->toBeTrue();
@@ -48,6 +52,87 @@ test('sends the meow command to the private room channel', function () {
     });
 });
 
+test('updates pet needs and sends the selected care action to the private room channel', function (string $action, array $needs) {
+    Event::fake([RoomCommandRequested::class]);
+    $room = Room::factory()->create([
+        'code' => 'CARE01',
+        'hunger' => 65,
+        'energy' => 70,
+        'happiness' => 60,
+        'pet_needs_updated_at' => now(),
+    ]);
+
+    $this->get(route('room.show', $room));
+
+    $this->postJson(route('room.actions', [$room, $action]))
+        ->assertOk()
+        ->assertJsonPath('action', $action)
+        ->assertJsonPath('needs', $needs);
+
+    $this->assertDatabaseHas('rooms', [
+        'id' => $room->id,
+        ...$needs,
+    ]);
+    Event::assertDispatched(RoomCommandRequested::class, fn (RoomCommandRequested $event): bool => $event->room->is($room) && $event->action === $action);
+})->with([
+    'feeding' => ['feed', ['hunger' => 35, 'energy' => 70, 'happiness' => 65]],
+    'playing' => ['play', ['hunger' => 70, 'energy' => 55, 'happiness' => 80]],
+    'sleeping' => ['sleep', ['hunger' => 70, 'energy' => 100, 'happiness' => 60]],
+]);
+
+test('refreshes pet needs as time passes', function () {
+    $room = Room::factory()->create([
+        'code' => 'TIME01',
+        'hunger' => 20,
+        'energy' => 80,
+        'happiness' => 80,
+        'pet_needs_updated_at' => now()->subMinutes(30),
+    ]);
+
+    $this->get(route('room.show', $room));
+
+    $this->assertDatabaseHas('rooms', [
+        'id' => $room->id,
+        'hunger' => 26,
+        'energy' => 77,
+        'happiness' => 78,
+    ]);
+});
+
+test('forbids pet care commands before the room is opened in the browser session', function () {
+    Event::fake([RoomCommandRequested::class]);
+    $room = Room::factory()->create(['code' => 'LOCK01']);
+
+    $this->postJson(route('room.actions', [$room, 'sleep']))->assertForbidden();
+
+    Event::assertNotDispatched(RoomCommandRequested::class);
+});
+
+test('does not change pet needs when the realtime command cannot be broadcast', function () {
+    $room = Room::factory()->create([
+        'code' => 'FAIL01',
+        'hunger' => 65,
+        'energy' => 70,
+        'happiness' => 60,
+        'pet_needs_updated_at' => now(),
+    ]);
+    mock(BroadcastingFactory::class)
+        ->shouldReceive('queue')
+        ->once()
+        ->andThrow(new RuntimeException('Reverb is unavailable.'));
+
+    $this->get(route('room.show', $room));
+
+    $this->postJson(route('room.actions', [$room, 'feed']))->assertServerError();
+
+    $this->assertDatabaseHas('rooms', [
+        'id' => $room->id,
+        'hunger' => 65,
+        'energy' => 70,
+        'happiness' => 60,
+    ]);
+});
+
 test('shows the room code without a qr code on the controller', function () {
     $room = Room::factory()->create(['code' => 'CODE01']);
 
@@ -55,6 +140,13 @@ test('shows the room code without a qr code on the controller', function () {
         ->assertOk()
         ->assertSee('CODE01')
         ->assertDontSee('data-room-qr', false);
+});
+
+test('describes manual TV code entry when creating a room', function () {
+    $this->get(route('room.create'))
+        ->assertOk()
+        ->assertSee('введите код комнаты')
+        ->assertDontSee('QR-код');
 });
 
 test('authorizes the private room channel after the room is opened in the browser session', function () {

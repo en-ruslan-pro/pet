@@ -8,6 +8,8 @@ if (tvRoom !== null) {
     const status = tvRoom.querySelector('[data-tv-room-status]');
     const frame = tvRoom.querySelector('iframe');
     const reverb = JSON.parse(tvRoom.dataset.reverb ?? '{}');
+    const petNeeds = JSON.parse(tvRoom.dataset.petNeeds ?? '{}');
+    const sendToScene = (message) => frame?.contentWindow?.postMessage(message, window.location.origin);
 
     window.Pusher = Pusher;
 
@@ -37,12 +39,14 @@ if (tvRoom !== null) {
 
     echo.private(`room.${tvRoom.dataset.roomCode}`)
         .listen('.room.command.requested', (event) => {
-            frame?.contentWindow?.postMessage({ action: event.action, petName: event.petName }, window.location.origin);
+            sendToScene({ action: event.action, petName: event.petName, needs: event.needs });
 
             if (status !== null) {
                 status.textContent = event.action === 'meow' ? `${event.petName} мяукает` : 'Получена команда';
             }
         });
+
+    frame?.addEventListener('load', () => sendToScene({ action: 'sync-needs', needs: petNeeds }));
 
     heartbeat().then(() => {
         if (status !== null) {

@@ -7,6 +7,7 @@ use App\Models\Room;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -48,6 +49,7 @@ class RoomController extends Controller
     public function showTv(Request $request, Room $room): View
     {
         $this->grantAccess($request, $room);
+        $room->refreshPetNeeds();
         $room->update(['tv_connected_at' => now()]);
 
         return view('tv.show', [
@@ -64,6 +66,7 @@ class RoomController extends Controller
     public function show(Request $request, Room $room): View
     {
         $this->grantAccess($request, $room);
+        $room->refreshPetNeeds();
 
         return view('rooms.show', compact('room'));
     }
@@ -79,9 +82,30 @@ class RoomController extends Controller
     public function status(Request $request, Room $room): JsonResponse
     {
         $this->ensureAccess($request, $room);
+        $room->refreshPetNeeds();
 
         return response()->json([
             'connected' => $room->fresh()->isTvConnected(),
+            'needs' => $room->petNeeds(),
+        ]);
+    }
+
+    public function sendPetAction(Request $request, Room $room, string $action): JsonResponse
+    {
+        $this->ensureAccess($request, $room);
+        DB::transaction(function () use ($room, $action): void {
+            $room->performPetAction($action);
+            RoomCommandRequested::dispatch($room, $action);
+        });
+
+        return response()->json([
+            'action' => $action,
+            'message' => match ($action) {
+                'feed' => "{$room->pet_name} идёт к миске.",
+                'play' => "{$room->pet_name} идёт играть.",
+                'sleep' => "{$room->pet_name} идёт отдыхать.",
+            },
+            'needs' => $room->petNeeds(),
         ]);
     }
 

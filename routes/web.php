@@ -12,6 +12,10 @@ Route::get('room/{room:code}', [RoomController::class, 'show'])->name('room.show
 Route::post('room/{room:code}/meow', [RoomController::class, 'sendMeow'])
     ->middleware('throttle:12,1')
     ->name('room.meow');
+Route::post('room/{room:code}/actions/{action}', [RoomController::class, 'sendPetAction'])
+    ->whereIn('action', ['feed', 'play', 'sleep'])
+    ->middleware('throttle:12,1')
+    ->name('room.actions');
 Route::get('room/{room:code}/status', [RoomController::class, 'status'])->name('room.status');
 
 Route::get('tv', [RoomController::class, 'tvEntry'])->name('tv.entry');

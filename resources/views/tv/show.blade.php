@@ -12,7 +12,7 @@
         </style>
     </head>
     <body>
-        <main data-tv-room data-room-code="{{ $room->code }}" data-heartbeat-url="{{ route('tv.heartbeat', $room) }}" data-reverb='@json($reverb)'>
+        <main data-tv-room data-room-code="{{ $room->code }}" data-heartbeat-url="{{ route('tv.heartbeat', $room) }}" data-pet-needs='@json($room->petNeeds())' data-reverb='@json($reverb)'>
             <iframe title="{{ $room->pet_name }} дома" src="{{ route('demo', ['tv' => 1]) }}"></iframe>
             <p class="tv-room__status" data-tv-room-status>Подключаем {{ $room->pet_name }}</p>
         </main>

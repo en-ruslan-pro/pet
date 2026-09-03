@@ -11,7 +11,7 @@
             <section class="w-full rounded-3xl border border-amber-200/15 bg-stone-900 p-8 shadow-2xl shadow-black/30">
                 <p class="text-sm font-semibold uppercase tracking-[0.2em] text-amber-300">Virtual Pet TV</p>
                 <h1 class="mt-3 text-3xl font-semibold text-white">Создайте комнату для питомца</h1>
-                <p class="mt-3 text-stone-300">Откройте комнату на телевизоре, отсканируйте QR-код телефоном и позовите питомца.</p>
+                <p class="mt-3 text-stone-300">Откройте TV Mode на телевизоре, введите код комнаты и управляйте питомцем с телефона или компьютера.</p>
 
                 <form class="mt-8 grid gap-5" method="POST" action="{{ route('room.store') }}">
                     @csrf

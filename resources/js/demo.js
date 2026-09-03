@@ -114,6 +114,31 @@ if (!window.WebGLRenderingContext) {
 
     roomAssets.forEach(addRoomAsset);
 
+    const interestPoints = {
+        bowl: new THREE.Vector3(2.8, 0, 1.55),
+        bed: new THREE.Vector3(-2.75, 0, -2.65),
+        playArea: new THREE.Vector3(-1.15, 0, 2.8),
+        window: new THREE.Vector3(4.6, 0, -4.75),
+        scratchingPost: new THREE.Vector3(5.85, 0, 1.9),
+        sofa: new THREE.Vector3(2.25, 0, -3.55),
+    };
+    const interactionProps = [
+        { point: 'bowl', geometry: new THREE.CylinderGeometry(0.48, 0.36, 0.18, 24), color: '#dca34d', elevation: 0.09 },
+        { point: 'bed', geometry: new THREE.BoxGeometry(1.85, 0.24, 1.25), color: '#9e6c58', elevation: 0.12 },
+        { point: 'playArea', geometry: new THREE.SphereGeometry(0.24, 20, 16), color: '#db6752', elevation: 0.24 },
+        { point: 'window', geometry: new THREE.BoxGeometry(1.7, 1.25, 0.08), color: '#9fc5d6', elevation: 1.75 },
+        { point: 'scratchingPost', geometry: new THREE.CylinderGeometry(0.18, 0.26, 1.35, 16), color: '#b98a5c', elevation: 0.675 },
+    ];
+
+    interactionProps.forEach(({ point, geometry, color, elevation }) => {
+        const prop = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness: 0.7 }));
+        prop.position.copy(interestPoints[point]);
+        prop.position.y = elevation;
+        prop.castShadow = true;
+        prop.receiveShadow = true;
+        room.add(prop);
+    });
+
     const roomLights = [
         { color: '#ffb85f', intensity: 95, distance: 15, position: [0, 7, 0], castsShadow: true },
         { color: '#ffc878', intensity: 58, distance: 9, position: [-7.15, 7.25, -5.15] },
@@ -211,8 +236,26 @@ if (!window.WebGLRenderingContext) {
     updateLightDistance();
     updateCameraLight();
 
-    const actionNames = { idle: 'Отдыхает', walk: 'Гуляет', sit: 'Наблюдает' };
-    const actionDurations = { idle: [5, 15], walk: [4, 7], sit: [5, 10] };
+    const actionNames = {
+        idle: 'Отдыхает',
+        walk: 'Идёт',
+        sit: 'Наблюдает',
+        eat: 'Ест',
+        sleep: 'Спит',
+        play: 'Играет',
+        lookWindow: 'Смотрит в окно',
+        scratch: 'Точит когти',
+    };
+    const actionDurations = {
+        idle: [5, 15],
+        walk: [4, 7],
+        sit: [5, 10],
+        eat: [5, 7],
+        sleep: [9, 13],
+        play: [6, 9],
+        lookWindow: [7, 12],
+        scratch: [5, 8],
+    };
     const walkTargets = [
         new THREE.Vector3(-2.1, 0, -0.25),
         new THREE.Vector3(1.85, 0, 0.95),
@@ -230,6 +273,90 @@ if (!window.WebGLRenderingContext) {
     let walkTarget;
     let animationClips = [];
     let selectedAnimation;
+    let queuedAction;
+    let pendingRemoteAction;
+
+    const behaviorTargets = {
+        eat: 'bowl',
+        sleep: 'bed',
+        play: 'playArea',
+        lookWindow: 'window',
+        scratch: 'scratchingPost',
+        sit: 'sofa',
+    };
+
+    class PetBrain {
+        constructor(needs = {}) {
+            this.needs = { hunger: 20, energy: 80, happiness: 80 };
+            this.lastAction = 'idle';
+            this.setNeeds(needs);
+        }
+
+        setNeeds(needs) {
+            ['hunger', 'energy', 'happiness'].forEach((need) => {
+                if (Number.isFinite(needs[need])) {
+                    this.needs[need] = THREE.MathUtils.clamp(needs[need], 0, 100);
+                }
+            });
+        }
+
+        advance(delta) {
+            this.needs.hunger = Math.min(100, this.needs.hunger + delta / 300);
+            this.needs.energy = Math.max(0, this.needs.energy - delta / 600);
+            this.needs.happiness = Math.max(0, this.needs.happiness - delta / 900);
+        }
+
+        chooseAction() {
+            const candidates = [
+                ['eat', Math.max(1, (this.needs.hunger - 50) * 2)],
+                ['sleep', Math.max(1, (45 - this.needs.energy) * 2)],
+                ['play', Math.max(2, (45 - this.needs.happiness) * 2)],
+                ['idle', 4],
+                ['walk', 4],
+                ['sit', 3],
+                ['lookWindow', 3],
+                ['scratch', 2],
+            ].map(([action, weight]) => [action, action === this.lastAction ? weight * 0.35 : weight]);
+            const totalWeight = candidates.reduce((total, [, weight]) => total + weight, 0);
+            let cursor = Math.random() * totalWeight;
+
+            for (const [action, weight] of candidates) {
+                cursor -= weight;
+
+                if (cursor <= 0) {
+                    return action;
+                }
+            }
+
+            return 'idle';
+        }
+
+        completeAction(action) {
+            this.lastAction = action;
+
+            if (action === 'eat') {
+                this.needs.hunger = Math.max(0, this.needs.hunger - 25);
+                this.needs.happiness = Math.min(100, this.needs.happiness + 3);
+            }
+
+            if (action === 'sleep') {
+                this.needs.energy = Math.min(100, this.needs.energy + 25);
+                this.needs.hunger = Math.min(100, this.needs.hunger + 3);
+            }
+
+            if (action === 'play') {
+                this.needs.energy = Math.max(0, this.needs.energy - 12);
+                this.needs.happiness = Math.min(100, this.needs.happiness + 15);
+                this.needs.hunger = Math.min(100, this.needs.hunger + 4);
+            }
+
+            if (action === 'scratch') {
+                this.needs.happiness = Math.min(100, this.needs.happiness + 6);
+            }
+        }
+    }
+
+    const petBrain = new PetBrain();
 
     const randomDuration = ([minimum, maximum]) => minimum + Math.random() * (maximum - minimum);
     const findAnimationClip = (clips, candidates) => clips.find((clip) => candidates.some((candidate) => clip.name.toLowerCase().includes(candidate)));
@@ -250,10 +377,10 @@ if (!window.WebGLRenderingContext) {
         activeAnimation = nextAnimation;
     };
 
-    const setAction = (nextAction, clips) => {
+    const setAction = (nextAction, clips, options = {}) => {
         currentAction = nextAction;
         actionElapsed = 0;
-        actionDuration = randomDuration(actionDurations[nextAction]);
+        actionDuration = options.duration ?? randomDuration(actionDurations[nextAction]);
         actionLabel.textContent = actionNames[nextAction];
 
         const defaultClip = clips[0];
@@ -262,15 +389,62 @@ if (!window.WebGLRenderingContext) {
             idle: idleClip,
             walk: findAnimationClip(clips, ['walk']) ?? defaultClip,
             sit: findAnimationClip(clips, ['sit', 'rest', 'look']) ?? idleClip,
+            eat: findAnimationClip(clips, ['eat', 'feed']) ?? idleClip,
+            sleep: findAnimationClip(clips, ['sleep', 'rest']) ?? idleClip,
+            play: findAnimationClip(clips, ['play', 'jump']) ?? idleClip,
+            lookWindow: findAnimationClip(clips, ['look', 'sit', 'rest']) ?? idleClip,
+            scratch: findAnimationClip(clips, ['scratch', 'stand']) ?? idleClip,
         };
         playAnimation(actionClips[nextAction]);
 
         if (nextAction === 'walk' && cat !== undefined) {
             walkStart = cat.position.clone();
-            walkTarget = walkTargets[Math.floor(Math.random() * walkTargets.length)].clone();
+            walkTarget = options.target?.clone() ?? walkTargets[Math.floor(Math.random() * walkTargets.length)].clone();
             const direction = walkTarget.clone().sub(walkStart).setY(0);
             cat.rotation.y = Math.atan2(direction.x, direction.z);
         }
+    };
+
+    const beginBehavior = (action) => {
+        if (cat === undefined || mixer === undefined) {
+            return;
+        }
+
+        const point = behaviorTargets[action];
+
+        if (point === undefined) {
+            setAction(action, animationClips);
+
+            return;
+        }
+
+        queuedAction = action;
+        const target = interestPoints[point];
+        const distance = cat.position.distanceTo(target);
+        setAction('walk', animationClips, { target, duration: Math.max(2.5, distance / 1.15) });
+    };
+
+    const startAutonomousBehavior = () => beginBehavior(petBrain.chooseAction());
+
+    const performRemoteAction = (action, needs) => {
+        if (needs !== undefined) {
+            petBrain.setNeeds(needs);
+        }
+
+        const behavior = { feed: 'eat', play: 'play', sleep: 'sleep' }[action];
+
+        if (behavior === undefined) {
+            return;
+        }
+
+        if (cat === undefined || mixer === undefined) {
+            pendingRemoteAction = action;
+
+            return;
+        }
+
+        selectedAnimation = undefined;
+        beginBehavior(behavior);
     };
 
     animationControl.addEventListener('change', () => {
@@ -289,11 +463,23 @@ if (!window.WebGLRenderingContext) {
     });
 
     window.addEventListener('message', (event) => {
-        if (event.origin !== window.location.origin || event.data?.action !== 'meow') {
+        if (event.origin !== window.location.origin) {
             return;
         }
 
-        actionLabel.textContent = `${event.data.petName ?? 'Мурка'} мяукает`;
+        if (event.data?.action === 'meow') {
+            actionLabel.textContent = `${event.data.petName ?? 'Мурка'} мяукает`;
+
+            return;
+        }
+
+        if (event.data?.action === 'sync-needs') {
+            petBrain.setNeeds(event.data.needs ?? {});
+
+            return;
+        }
+
+        performRemoteAction(event.data?.action, event.data?.needs);
     });
 
     new GLTFLoader().load(
@@ -323,6 +509,11 @@ if (!window.WebGLRenderingContext) {
             });
             animationControl.disabled = animationClips.length === 0;
             setAction('idle', gltf.animations);
+
+            if (pendingRemoteAction !== undefined) {
+                performRemoteAction(pendingRemoteAction);
+                pendingRemoteAction = undefined;
+            }
         },
         undefined,
         () => {
@@ -339,15 +530,20 @@ if (!window.WebGLRenderingContext) {
         mixer?.update(delta);
 
         if (cat !== undefined) {
+            petBrain.advance(delta);
             actionElapsed += delta;
 
             if (currentAction === 'walk' && walkStart !== undefined && walkTarget !== undefined) {
                 cat.position.lerpVectors(walkStart, walkTarget, Math.min(actionElapsed / actionDuration, 1));
             }
 
-            if (selectedAnimation === undefined && actionElapsed >= actionDuration) {
-                const availableActions = ['idle', 'walk', 'sit'].filter((action) => action !== currentAction);
-                setAction(availableActions[Math.floor(Math.random() * availableActions.length)], cat.userData.animationClips);
+            if (selectedAnimation === undefined && actionElapsed >= actionDuration && currentAction === 'walk' && queuedAction !== undefined) {
+                const nextAction = queuedAction;
+                queuedAction = undefined;
+                setAction(nextAction, cat.userData.animationClips);
+            } else if (selectedAnimation === undefined && actionElapsed >= actionDuration) {
+                petBrain.completeAction(currentAction);
+                startAutonomousBehavior();
             }
         }
 

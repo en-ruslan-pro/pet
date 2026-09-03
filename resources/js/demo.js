@@ -73,6 +73,8 @@ if (!window.WebGLRenderingContext) {
         { file: 'frames', position: [-3.4, -6.35], span: 2.8, elevation: 3.7 },
         { file: 'couch', position: [3.7, -4.65], rotationX: Math.PI / 2, span: 3.7 },
         { file: 'armchair', position: [-7.15, 1.05], rotationX: Math.PI / 2, span: 1.55 },
+        { file: 'simple_single_bed', position: [-3.35, -2.65], rotationX: Math.PI / 2, span: 2.35 },
+        { file: 'rug', position: [-1.15, 2.8], rotationX: Math.PI / 2, span: 3.1 },
         { file: 'simple_library_A', position: [6.8, -5.35], rotation: -Math.PI / 2, span: 2.15 },
         { file: 'lamp', position: [5.8, -2.95], span: 1.25 },
         { file: 'plant', position: [-6.9, -4.8], rotation: Math.PI / 4, span: 1.45, heightScale: 1.5 },
@@ -114,30 +116,98 @@ if (!window.WebGLRenderingContext) {
 
     roomAssets.forEach(addRoomAsset);
 
-    const interestPoints = {
-        bowl: new THREE.Vector3(2.8, 0, 1.55),
-        bed: new THREE.Vector3(-2.75, 0, -2.65),
-        playArea: new THREE.Vector3(-1.15, 0, 2.8),
-        window: new THREE.Vector3(4.6, 0, -4.75),
-        scratchingPost: new THREE.Vector3(5.85, 0, 1.9),
-        sofa: new THREE.Vector3(2.25, 0, -3.55),
+    const roomObjects = {
+        bed: { interactionPoint: new THREE.Vector3(-2.75, 0, -2.65) },
+        foodBowl: { interactionPoint: new THREE.Vector3(2.8, 0, 1.55) },
+        waterBowl: { interactionPoint: new THREE.Vector3(3.85, 0, 1.55) },
+        scratchingPost: { interactionPoint: new THREE.Vector3(5.85, 0, 1.9) },
+        window: { interactionPoint: new THREE.Vector3(4.6, 0, -6.42) },
+        sofa: { interactionPoint: new THREE.Vector3(2.25, 0, -3.55) },
+        rug: { interactionPoint: new THREE.Vector3(-1.15, 0, 2.8) },
+        ball: { interactionPoint: new THREE.Vector3(-0.3, 0, 2.15) },
+        toyMouse: { interactionPoint: new THREE.Vector3(-1.15, 0, 2.8) },
     };
-    const interactionProps = [
-        { point: 'bowl', geometry: new THREE.CylinderGeometry(0.48, 0.36, 0.18, 24), color: '#dca34d', elevation: 0.09 },
-        { point: 'bed', geometry: new THREE.BoxGeometry(1.85, 0.24, 1.25), color: '#9e6c58', elevation: 0.12 },
-        { point: 'playArea', geometry: new THREE.SphereGeometry(0.24, 20, 16), color: '#db6752', elevation: 0.24 },
-        { point: 'window', geometry: new THREE.BoxGeometry(1.7, 1.25, 0.08), color: '#9fc5d6', elevation: 1.75 },
-        { point: 'scratchingPost', geometry: new THREE.CylinderGeometry(0.18, 0.26, 1.35, 16), color: '#b98a5c', elevation: 0.675 },
-    ];
+    const interestPoints = Object.fromEntries(
+        Object.entries(roomObjects).map(([name, { interactionPoint }]) => [name, interactionPoint]),
+    );
+    const addInteractionMesh = (mesh, point, elevation = 0) => {
+        mesh.position.copy(interestPoints[point]);
+        mesh.position.y += elevation;
+        mesh.traverse((object) => {
+            if (object.isMesh) {
+                object.castShadow = true;
+                object.receiveShadow = true;
+            }
+        });
+        room.add(mesh);
 
-    interactionProps.forEach(({ point, geometry, color, elevation }) => {
-        const prop = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness: 0.7 }));
-        prop.position.copy(interestPoints[point]);
-        prop.position.y = elevation;
-        prop.castShadow = true;
-        prop.receiveShadow = true;
-        room.add(prop);
-    });
+        return mesh;
+    };
+    const createBowl = (point, outerColor, contentsColor) => {
+        const bowl = new THREE.Group();
+        const outer = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.48, 0.36, 0.2, 24),
+            new THREE.MeshStandardMaterial({ color: outerColor, roughness: 0.38, metalness: 0.12 }),
+        );
+        const contents = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.34, 0.34, 0.03, 24),
+            new THREE.MeshStandardMaterial({ color: contentsColor, roughness: 0.55 }),
+        );
+        contents.position.y = 0.115;
+        bowl.add(outer, contents);
+        addInteractionMesh(bowl, point, 0.1);
+    };
+
+    createBowl('foodBowl', '#dca34d', '#8b5431');
+    createBowl('waterBowl', '#78a8b9', '#9dd9ee');
+
+    const scratchingPost = new THREE.Group();
+    scratchingPost.add(
+        new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.62, 0.14, 20), new THREE.MeshStandardMaterial({ color: '#5f4030', roughness: 0.82 })),
+        new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 1.45, 18), new THREE.MeshStandardMaterial({ color: '#b98a5c', roughness: 0.9 })),
+    );
+    scratchingPost.children[1].position.y = 0.76;
+    addInteractionMesh(scratchingPost, 'scratchingPost', 0.07);
+
+    const windowFrame = new THREE.Group();
+    const glass = new THREE.Mesh(
+        new THREE.BoxGeometry(2.35, 1.75, 0.08),
+        new THREE.MeshStandardMaterial({ color: '#82bbd0', roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.7 }),
+    );
+    const frameMaterial = new THREE.MeshStandardMaterial({ color: '#60453a', roughness: 0.72 });
+    windowFrame.add(
+        glass,
+        new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.12, 0.14), frameMaterial),
+        new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.12, 0.14), frameMaterial),
+        new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.85, 0.14), frameMaterial),
+        new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.85, 0.14), frameMaterial),
+        new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.65, 0.14), frameMaterial),
+        new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.1, 0.14), frameMaterial),
+    );
+    windowFrame.children[1].position.y = 0.9;
+    windowFrame.children[2].position.y = -0.9;
+    windowFrame.children[3].position.x = -1.22;
+    windowFrame.children[4].position.x = 1.22;
+    addInteractionMesh(windowFrame, 'window', 1.75);
+
+    const ball = new THREE.Mesh(
+        new THREE.SphereGeometry(0.26, 20, 16),
+        new THREE.MeshStandardMaterial({ color: '#db6752', roughness: 0.44 }),
+    );
+    addInteractionMesh(ball, 'ball', 0.26);
+
+    const toyMouse = new THREE.Group();
+    const mouseMaterial = new THREE.MeshStandardMaterial({ color: '#b7a69b', roughness: 0.8 });
+    toyMouse.add(
+        new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), mouseMaterial),
+        new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 12), mouseMaterial),
+        new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 12), mouseMaterial),
+    );
+    toyMouse.children[1].position.set(-0.09, 0.18, 0.02);
+    toyMouse.children[2].position.set(0.09, 0.18, 0.02);
+    toyMouse.children[1].rotation.z = -0.2;
+    toyMouse.children[2].rotation.z = 0.2;
+    addInteractionMesh(toyMouse, 'toyMouse', 0.22);
 
     const roomLights = [
         { color: '#ffb85f', intensity: 95, distance: 15, position: [0, 7, 0], castsShadow: true },
@@ -277,9 +347,9 @@ if (!window.WebGLRenderingContext) {
     let pendingRemoteAction;
 
     const behaviorTargets = {
-        eat: 'bowl',
+        eat: 'foodBowl',
         sleep: 'bed',
-        play: 'playArea',
+        play: 'toyMouse',
         lookWindow: 'window',
         scratch: 'scratchingPost',
         sit: 'sofa',

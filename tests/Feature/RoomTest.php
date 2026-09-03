@@ -37,6 +37,17 @@ test('opens the tv room from its connection code and records the connection', fu
     expect($room->fresh()->isTvConnected())->toBeTrue();
 });
 
+test('opens the tv room directly from the home page with a room code', function () {
+    $room = Room::factory()->create(['code' => 'HOME01']);
+
+    $this->get(route('home'))
+        ->assertSee('action="'.route('tv.enter').'"', false)
+        ->assertSee('name="code"', false);
+
+    $this->post(route('tv.enter'), ['code' => 'home01'])
+        ->assertRedirect(route('tv.show', $room));
+});
+
 test('sends the meow command to the private room channel', function () {
     Event::fake([RoomCommandRequested::class]);
     $room = Room::factory()->create(['code' => 'MEOW01']);

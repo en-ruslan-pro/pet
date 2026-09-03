@@ -24,6 +24,12 @@
             .lead { max-width: 38rem; margin: 0; color: rgb(255 249 238 / 74%); font-size: clamp(1.05rem, 2vw, 1.25rem); line-height: 1.6; }
             .cta { display: inline-flex; align-items: center; gap: .75rem; margin-top: 2rem; padding: 1rem 1.25rem; border-radius: .8rem; background: #f6c477; color: #28170b; font-weight: 800; text-decoration: none; transition: transform .2s ease, background .2s ease; }
             .cta:hover, .cta:focus-visible { background: #ffe0a6; transform: translateY(-2px); }
+            .room-entry { display: grid; grid-template-columns: 1fr auto; gap: .65rem; max-width: 31rem; margin-top: 1.25rem; }
+            .room-entry__label { grid-column: 1 / -1; color: rgb(255 249 238 / 68%); font-size: .85rem; font-weight: 700; }
+            .room-entry__input { min-width: 0; border: 1px solid rgb(255 255 255 / 18%); border-radius: .8rem; padding: .9rem 1rem; background: rgb(24 20 16 / 72%); color: #fff9ee; font: 700 1rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .18em; outline: none; text-align: center; text-transform: uppercase; }
+            .room-entry__input:focus { border-color: #f6c477; box-shadow: 0 0 0 3px rgb(246 196 119 / 22%); }
+            .room-entry__submit { border: 0; border-radius: .8rem; padding: .9rem 1rem; background: rgb(255 249 238 / 12%); color: #fff9ee; cursor: pointer; font: 800 .9rem/1 Inter, ui-sans-serif, system-ui, sans-serif; transition: background .2s ease, transform .2s ease; }
+            .room-entry__submit:hover, .room-entry__submit:focus-visible { background: rgb(246 196 119 / 24%); transform: translateY(-2px); }
             .steps { display: grid; gap: 1rem; padding: 1.5rem; border: 1px solid rgb(255 255 255 / 13%); border-radius: 1.5rem; background: rgb(45 36 29 / 66%); backdrop-filter: blur(1rem); }
             .steps__title { margin: 0 0 .4rem; color: #f6c477; font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
             .step { display: grid; grid-template-columns: 2rem 1fr; gap: .8rem; align-items: start; }
@@ -46,6 +52,13 @@
                         <h1>Ваш питомец живёт на телевизоре.</h1>
                         <p class="lead">Создайте уютную комнату, наблюдайте за питомцем на большом экране и управляйте им с телефона или компьютера.</p>
                         <a class="cta" href="{{ route('room.create') }}">Создать питомца <span aria-hidden="true">→</span></a>
+
+                        <form class="room-entry" method="POST" action="{{ route('tv.enter') }}">
+                            @csrf
+                            <label class="room-entry__label" for="room-code">Уже есть комната? Откройте её на телевизоре</label>
+                            <input id="room-code" class="room-entry__input" type="text" name="code" value="{{ old('code') }}" inputmode="text" maxlength="6" autocomplete="one-time-code" placeholder="КОД" required>
+                            <button class="room-entry__submit" type="submit">Открыть TV</button>
+                        </form>
                     </div>
 
                     <section class="steps" aria-label="Как это работает">

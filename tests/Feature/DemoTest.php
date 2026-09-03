@@ -16,3 +16,9 @@ test('renders the virtual pet demo', function () {
         ->assertSee('Дальность света от камеры')
         ->assertSee('Сила света от камеры');
 });
+
+test('hides scene controls in tv mode', function () {
+    $this->get(route('demo', ['tv' => 1]))
+        ->assertOk()
+        ->assertSee('class="demo-controls" aria-label="Настройка сцены" hidden', false);
+});

@@ -204,7 +204,11 @@
             <span id="pet-action">Просыпается</span>
         </div>
 
-        <aside class="demo-controls" aria-label="Настройка сцены">
+        @if (request()->boolean('tv'))
+            <aside class="demo-controls" aria-label="Настройка сцены" hidden>
+        @else
+            <aside class="demo-controls" aria-label="Настройка сцены">
+        @endif
             <section class="demo-controls__section">
                 <p class="demo-controls__title">Освещение</p>
                 <input id="demo-lighting" type="range" min="0.60" max="1.60" step="0.05" value="1.50" aria-label="Интенсивность освещения">

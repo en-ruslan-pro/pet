@@ -27,7 +27,8 @@ test('opens the tv room from its connection code and records the connection', fu
     $this->get(route('tv.show', $room))
         ->assertOk()
         ->assertSee($room->pet_name)
-        ->assertSee('data-tv-room', false);
+        ->assertSee('data-tv-room', false)
+        ->assertSee('tv=1');
 
     expect($room->fresh()->isTvConnected())->toBeTrue();
 });

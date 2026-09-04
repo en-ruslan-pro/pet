@@ -76,7 +76,7 @@ if (!window.WebGLRenderingContext) {
 
     const updatePetName = (name) => {
         if (petName !== null) {
-            petName.textContent = name ?? 'Питомец';
+            petName.textContent = name ?? petName.dataset.defaultName;
         }
     };
 

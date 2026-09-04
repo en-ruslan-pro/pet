@@ -248,9 +248,10 @@
     <body>
         <main id="pet-demo" aria-label="Virtual Pet TV: Мурка живёт в своей комнате"></main>
 
-        <section class="pet-status" aria-label="Потребности питомца">
-            <p id="pet-name" class="pet-status__name">Питомец</p>
-            @foreach (['satiety' => __('pet.needs.satiety'), 'energy' => 'Энергия', 'happiness' => 'Настроение'] as $need => $label)
+        <section class="pet-status" aria-label="{{ __('pet.status.label') }}">
+            <p id="pet-name" class="pet-status__name" data-default-name="{{ __('pet.status.default_name') }}">{{ __('pet.status.default_name') }}</p>
+            @foreach (['satiety', 'energy', 'happiness'] as $need)
+                @php($label = __('pet.needs.'.$need))
                 <div class="pet-status__need">
                     <span class="pet-status__label">{{ $label }}</span>
                     <span class="pet-status__meter" role="progressbar" aria-label="{{ $label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-pet-need="{{ $need }}"><span></span></span>

@@ -14,7 +14,7 @@ test('renders the virtual pet demo', function () {
         ->assertDontSee('Мурка дома')
         ->assertDontSee('id="pet-action"', false)
         ->assertSee('id="pet-name"', false)
-        ->assertSee('Потребности питомца')
+        ->assertSee('Pet needs')
         ->assertSee('data-pet-need="satiety"', false)
         ->assertSee('Satiety')
         ->assertSee('data-pet-need="energy"', false)
@@ -81,24 +81,24 @@ test('prefers walking at high energy and sleep at low energy', function () {
         'node',
         '--input-type=module',
         '--eval',
-        'import { chooseAutonomousAction } from "./resources/js/pet-brain.js"; const actions = { walk: { settings: { autonomous_weight: 1 } }, sleep: { settings: { autonomous_weight: 1 } } }; const moodActions = { idle: { settings: { autonomous_weight: 1 } }, play: { settings: { autonomous_weight: 1 } }, scratch: { settings: { autonomous_weight: 1 } } }; const recoveryActions = { sleep: { settings: { autonomous_weight: 1 } }, idle: { settings: { autonomous_weight: 1 } } }; console.log(JSON.stringify({ rested: chooseAutonomousAction(actions, { satiety: 80, energy: 80, happiness: 80 }, "idle", () => 0.5), tired: chooseAutonomousAction(actions, { satiety: 80, energy: 20, happiness: 80 }, "idle", () => 0.5), content: chooseAutonomousAction(moodActions, { satiety: 80, energy: 80, happiness: 80 }, "walk", () => 0.5), unhappy: chooseAutonomousAction(moodActions, { satiety: 80, energy: 80, happiness: 30 }, "walk", () => 0.5), afterSleep: chooseAutonomousAction(recoveryActions, { satiety: 80, energy: 20, happiness: 80 }, "sleep", () => 0), onlySleep: chooseAutonomousAction({ sleep: { settings: { autonomous_weight: 1 } } }, { satiety: 80, energy: 20, happiness: 80 }, "sleep", () => 0) }));',
+        'import { chooseAutonomousAction } from "./resources/js/pet-brain.js"; const actions = { walk: { settings: { autonomous_weight: 1 } }, sleep: { settings: { autonomous_weight: 1 } } }; const moodActions = { idle: { settings: { autonomous_weight: 1 } }, play: { settings: { autonomous_weight: 1 } }, scratch: { settings: { autonomous_weight: 1 } } }; const recoveryActions = { sleep: { settings: { autonomous_weight: 1 } }, idle: { settings: { autonomous_weight: 1 } } }; const reducedIdleActions = { idle: { settings: { autonomous_weight: 0.5 } }, walk: { settings: { autonomous_weight: 1 } } }; console.log(JSON.stringify({ rested: chooseAutonomousAction(actions, { satiety: 80, energy: 80, happiness: 80 }, "idle", () => 0.5), tired: chooseAutonomousAction(actions, { satiety: 80, energy: 20, happiness: 80 }, "idle", () => 0.5), content: chooseAutonomousAction(moodActions, { satiety: 80, energy: 80, happiness: 80 }, "walk", () => 0.5), unhappy: chooseAutonomousAction(moodActions, { satiety: 80, energy: 80, happiness: 30 }, "walk", () => 0.5), reducedIdle: chooseAutonomousAction(reducedIdleActions, { satiety: 80, energy: 80, happiness: 80 }, "sleep", () => 0.2), afterSleep: chooseAutonomousAction(recoveryActions, { satiety: 80, energy: 20, happiness: 80 }, "sleep", () => 0), onlySleep: chooseAutonomousAction({ sleep: { settings: { autonomous_weight: 1 } } }, { satiety: 80, energy: 20, happiness: 80 }, "sleep", () => 0) }));',
     ], base_path());
 
     $process->mustRun();
 
     expect(json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR))
-        ->toBe(['rested' => 'walk', 'tired' => 'sleep', 'content' => 'idle', 'unhappy' => 'play', 'afterSleep' => 'idle', 'onlySleep' => 'sleep']);
+        ->toBe(['rested' => 'walk', 'tired' => 'sleep', 'content' => 'idle', 'unhappy' => 'play', 'reducedIdle' => 'walk', 'afterSleep' => 'idle', 'onlySleep' => 'sleep']);
 });
 
-test('renders satiety in the browser locale', function (?string $language, string $label) {
+test('renders pet status labels in the browser locale', function (?string $language, array $labels) {
     $request = $language === null ? $this : $this->withHeader('Accept-Language', $language);
 
-    $request->get(route('demo'))->assertSee($label);
+    $request->get(route('demo'))->assertSeeInOrder($labels);
 })->with([
-    'Ukrainian browser' => ['uk-UA', 'Ситість'],
-    'English browser' => ['en-US', 'Satiety'],
-    'unsupported browser language' => ['pl-PL', 'Satiety'],
-    'missing browser language' => [null, 'Satiety'],
+    'Ukrainian browser' => ['uk-UA', ['Потреби улюбленця', 'Улюбленець', 'Ситість', 'Енергія', 'Настрій']],
+    'English browser' => ['en-US', ['Pet needs', 'Pet', 'Satiety', 'Energy', 'Happiness']],
+    'unsupported browser language' => ['pl-PL', ['Pet needs', 'Pet', 'Satiety', 'Energy', 'Happiness']],
+    'missing browser language' => [null, ['Pet needs', 'Pet', 'Satiety', 'Energy', 'Happiness']],
 ]);
 
 test('continues an action when its configured room target is unavailable', function () {

@@ -50,7 +50,7 @@ class PetCatalogSeeder extends Seeder
         );
 
         foreach ([
-            'idle' => ['Праздно стоит', ['Idle'], ['duration_seconds' => [5, 15]], null],
+            'idle' => ['Праздно стоит', ['Idle'], ['duration_seconds' => [2.5, 7.5]], null],
             'walk' => ['Гуляет', ['Walk'], ['speed' => 1.15], null],
             'sit' => ['Сидит', ['Sit'], ['duration_seconds' => [5, 10]], ['room_item_key' => 'sofa']],
             'sleep' => ['Спит', ['Sleep', 'Rest'], ['duration_seconds' => [9, 13]], ['room_item_key' => 'bed']],
@@ -203,7 +203,7 @@ class PetCatalogSeeder extends Seeder
     private function actionSettings(string $key): array
     {
         return match ($key) {
-            'idle' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => -4]],
+            'idle' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 0.5, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => -4]],
             'walk' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -3, 'energy' => -5, 'happiness' => 0]],
             'sit' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => 2, 'happiness' => -3]],
             'eat' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 8, 'energy' => 0, 'happiness' => 0]],

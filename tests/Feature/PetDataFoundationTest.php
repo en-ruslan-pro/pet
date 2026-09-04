@@ -22,6 +22,9 @@ test('seeds the cat model with its supported action configuration', function () 
     $sleep = $tabby->petModelActions()
         ->whereHas('petAction', fn ($query) => $query->where('key', 'sleep'))
         ->sole();
+    $idle = $tabby->petModelActions()
+        ->whereHas('petAction', fn ($query) => $query->where('key', 'idle'))
+        ->sole();
     $character = Character::query()->where('name', 'Полосатая кошка')->sole();
 
     expect($cat->needs_configuration)->toBe([
@@ -30,11 +33,12 @@ test('seeds the cat model with its supported action configuration', function () 
         'happiness' => ['minimum' => 0, 'maximum' => 100],
     ]);
     expect($sleep->execution_configuration)->toBe(['duration_seconds' => [9, 13]]);
+    expect($idle->execution_configuration)->toBe(['duration_seconds' => [2.5, 7.5]]);
     expect($sleep->interaction_points)->toBe(['room_item_key' => 'bed']);
     expect(PetAction::query()->orderBy('key')->get()->mapWithKeys(fn (PetAction $action) => [$action->key => $action->configuration])->all())
         ->toBe([
             'eat' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 8, 'energy' => 0, 'happiness' => 0]],
-            'idle' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => -4]],
+            'idle' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 0.5, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => -4]],
             'look_window' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => 1]],
             'meow' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => 0]],
             'play' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['satiety' => -4, 'energy' => -6, 'happiness' => 8]],

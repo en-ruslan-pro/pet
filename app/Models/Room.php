@@ -122,7 +122,7 @@ class Room extends Model
         };
 
         $this->forceFill([
-            'hunger' => 100 - ($changes['satiety'] ?? $this->petNeeds()['satiety']),
+            'hunger' => 100 - $changes['satiety'],
             'energy' => $changes['energy'] ?? $this->energy,
             'happiness' => $changes['happiness'] ?? $this->happiness,
             'pet_needs_updated_at' => now(),

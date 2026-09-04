@@ -63,8 +63,19 @@ test('hides scene controls in tv mode', function () {
 test('shows the pet action status only in debug mode', function () {
     $this->get(route('demo', ['debug' => 1]))
         ->assertSee('id="pet-action"', false)
-        ->assertSee('Просыпается');
+        ->assertSee('Resting');
 });
+
+test('renders the current pet action in the browser locale', function (?string $language, string $action) {
+    $request = $language === null ? $this : $this->withHeader('Accept-Language', $language);
+
+    $request->get(route('demo', ['debug' => 1]))->assertSee($action);
+})->with([
+    'Ukrainian browser' => ['uk-UA', 'Відпочиває'],
+    'English browser' => ['en-US', 'Resting'],
+    'unsupported browser language' => ['pl-PL', 'Resting'],
+    'missing browser language' => [null, 'Resting'],
+]);
 
 test('initializes the scene when the debug-only action status is absent', function () {
     $scene = file_get_contents(resource_path('js/demo.js'));
@@ -72,7 +83,7 @@ test('initializes the scene when the debug-only action status is absent', functi
     expect($scene)
         ->toContain('const updateActionLabel = (label) => {')
         ->toContain('if (actionLabel !== null) {')
-        ->toContain('updateActionLabel(actionDefinition.settings?.name ?? nextAction);')
+        ->toContain('updateActionLabel(statusAction(nextAction));')
         ->not->toContain('container === null || actionLabel === null');
 });
 

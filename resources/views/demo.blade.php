@@ -246,7 +246,17 @@
         </style>
     </head>
     <body>
-        <main id="pet-demo" aria-label="Virtual Pet TV: Мурка живёт в своей комнате"></main>
+        @php($statusTranslations = [
+            'actions' => __('pet.actions'),
+            'messages' => __('pet.messages'),
+            'defaultName' => __('pet.status.default_name'),
+        ])
+
+        <main
+            id="pet-demo"
+            aria-label="Virtual Pet TV: Мурка живёт в своей комнате"
+            data-status-translations='@json($statusTranslations)'
+        ></main>
 
         <section class="pet-status" aria-label="{{ __('pet.status.label') }}">
             <p id="pet-name" class="pet-status__name" data-default-name="{{ __('pet.status.default_name') }}">{{ __('pet.status.default_name') }}</p>
@@ -263,7 +273,7 @@
         @if (request()->has('debug'))
             <div class="demo-status" aria-live="polite">
                 <span class="demo-status__dot"></span>
-                <span id="pet-action">Просыпается</span>
+                <span id="pet-action">{{ __('pet.actions.idle') }}</span>
             </div>
         @endif
 

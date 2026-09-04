@@ -13,13 +13,17 @@
 ## Этапы
 
 1. **Готово:** добавлены переводы панели и характеристик в `lang/en/pet.php` и `lang/uk/pet.php`; шаблон использует ключи переводов.
+2. **Готово:** нижняя подпись текущего действия и все изменяемые JavaScript-сообщения используют переданный из шаблона словарь переводов.
 
 ## Изменённые области
 
 - `lang/en/pet.php` и `lang/uk/pet.php` — тексты панели характеристик.
 - `resources/views/demo.blade.php` — вывод текстов панели через Laravel-переводы.
+- `resources/js/demo.js` — локализованный вывод текущего действия и сообщений сцены.
 - `tests/Feature/DemoTest.php` — проверка всех текстов для украинской, английской и запасной локалей.
 
 ## Проверки
 
-- Ожидается запуск целевого Pest-теста.
+- `vendor/bin/pest tests/Feature/DemoTest.php --compact` — 20 тестов успешно.
+- `node --check resources/js/demo.js` — успешно.
+- `vendor/bin/pint --dirty --format agent` и `git diff --check` — успешно.

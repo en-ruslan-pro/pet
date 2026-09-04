@@ -54,6 +54,13 @@ if (container === null || lightingControl === null || lightingValue === null || 
     throw new Error('The Virtual Pet TV demo container is missing.');
 }
 
+const statusTranslations = JSON.parse(container.dataset.statusTranslations ?? '{}');
+const statusAction = (action) => statusTranslations.actions?.[action] ?? statusTranslations.actions?.idle;
+const statusMessage = (message, replacements = {}) => Object.entries(replacements).reduce(
+    (translatedMessage, [placeholder, value]) => translatedMessage.replace(`:${placeholder}`, value),
+    statusTranslations.messages?.[message] ?? '',
+);
+
 if (!window.WebGLRenderingContext) {
     container.innerHTML = '<div class="demo-error">Для запуска демонстрации нужен браузер с поддержкой WebGL.</div>';
 } else {
@@ -468,7 +475,7 @@ if (!window.WebGLRenderingContext) {
         const actionDefinition = animationConfiguration[nextAction] ?? {};
         const duration = actionDefinition.settings?.duration_seconds ?? [5, 10];
         actionDuration = options.duration ?? randomDuration(duration);
-        updateActionLabel(actionDefinition.settings?.name ?? nextAction);
+        updateActionLabel(statusAction(nextAction));
 
         actionSequence = animationConfiguration[nextAction]?.steps ?? [];
         actionSequenceIndex = 0;
@@ -577,7 +584,7 @@ if (!window.WebGLRenderingContext) {
 
         selectedAnimation = animationClips[selectedIndex];
         playAnimation(selectedAnimation);
-        updateActionLabel(`Анимация: ${selectedAnimation.name}`);
+        updateActionLabel(statusMessage('animation', { name: selectedAnimation.name }));
     });
 
     const selectedCharacter = () => {
@@ -612,7 +619,7 @@ if (!window.WebGLRenderingContext) {
         }
 
         if (event.data?.action === 'meow') {
-            updateActionLabel(`${event.data.petName ?? 'Мурка'} мяукает`);
+            updateActionLabel(statusMessage('meowing', { name: event.data.petName ?? statusTranslations.defaultName }));
 
             return;
         }
@@ -688,7 +695,7 @@ if (!window.WebGLRenderingContext) {
         },
         undefined,
         () => {
-            updateActionLabel('Не удалось загрузить модель');
+            updateActionLabel(statusMessage('model_load_failed'));
         },
         );
     };

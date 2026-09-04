@@ -18,16 +18,7 @@ class Character extends Model
         'pet_model_id',
         'name',
         'default_name',
-        'enabled_animation_clips',
     ];
-
-    /** @return array<string, string> */
-    protected function casts(): array
-    {
-        return [
-            'enabled_animation_clips' => 'array',
-        ];
-    }
 
     /** @return BelongsTo<PetModel, $this> */
     public function petModel(): BelongsTo

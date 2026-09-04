@@ -22,7 +22,6 @@ class PetModelActionFactory extends Factory
         return [
             'pet_model_id' => PetModel::factory(),
             'pet_action_id' => PetAction::factory(),
-            'animation_clips' => ['primary' => ['Idle']],
             'execution_configuration' => ['duration_seconds' => [5, 15]],
             'interaction_points' => ['room_item_key' => 'rug'],
             'is_available' => true,

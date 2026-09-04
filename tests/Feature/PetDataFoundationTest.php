@@ -3,8 +3,12 @@
 use App\Models\Character;
 use App\Models\Pet;
 use App\Models\PetAction;
+use App\Models\PetAnimationStep;
 use App\Models\PetModel;
 use App\Models\PetModelAction;
+use App\Models\PetModelActionStep;
+use App\Models\PetModelAnimationStep;
+use App\Models\PetModelAnimationStepClip;
 use App\Models\PetType;
 use App\Models\Room;
 use App\Models\RoomItem;
@@ -25,22 +29,84 @@ test('seeds the cat model with its supported action configuration', function () 
         'energy' => ['minimum' => 0, 'maximum' => 100],
         'happiness' => ['minimum' => 0, 'maximum' => 100],
     ]);
-    expect($sleep->animation_clips)->toBe(['primary' => ['Sleep', 'Rest']]);
     expect($sleep->execution_configuration)->toBe(['duration_seconds' => [9, 13]]);
     expect($sleep->interaction_points)->toBe(['room_item_key' => 'bed']);
+    expect($tabby->animationConfiguration()['sleep'])->toBe([
+        'steps' => [[
+            'key' => 'sleep.loop',
+            'durationSeconds' => null,
+            'clips' => [
+                ['name' => 'Rest', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true],
+                ['name' => 'Sleep', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true],
+            ],
+        ]],
+    ]);
     expect($character->default_name)->toBe('Мурка');
     expect($character->petModel->is($tabby))->toBeTrue();
 });
 
-test('seeds all KayKit adventurer characters with every animation enabled', function () {
+test('builds an ordered model action configuration from active animation steps', function () {
+    $model = PetModel::factory()->create();
+    $action = PetAction::factory()->create(['key' => 'sleep']);
+    $modelAction = PetModelAction::factory()->for($model)->for($action)->create();
+    $start = PetAnimationStep::factory()->create(['key' => 'sleep.start']);
+    $loop = PetAnimationStep::factory()->create(['key' => 'sleep.loop']);
+    $modelStart = PetModelAnimationStep::factory()->for($model)->for($start, 'animationStep')->create();
+    $modelLoop = PetModelAnimationStep::factory()->for($model)->for($loop, 'animationStep')->create();
+
+    PetModelAnimationStepClip::factory()->for($modelStart, 'modelStep')->create([
+        'clip_name' => 'Lie_Down',
+        'weight' => 2,
+        'playback_rate' => 0.75,
+        'is_looping' => false,
+    ]);
+    PetModelAnimationStepClip::factory()->for($modelLoop, 'modelStep')->create([
+        'clip_name' => 'Lie_Idle',
+        'is_looping' => true,
+    ]);
+    PetModelActionStep::factory()->for($modelAction)->for($loop, 'animationStep')->create(['position' => 2, 'duration_seconds' => 8]);
+    PetModelActionStep::factory()->for($modelAction)->for($start, 'animationStep')->create(['position' => 1]);
+
+    expect($model->animationConfiguration())->toBe([
+        'sleep' => [
+            'steps' => [
+                [
+                    'key' => 'sleep.start',
+                    'durationSeconds' => null,
+                    'clips' => [['name' => 'Lie_Down', 'weight' => 2, 'playbackRate' => 0.75, 'isLooping' => false]],
+                ],
+                [
+                    'key' => 'sleep.loop',
+                    'durationSeconds' => 8,
+                    'clips' => [['name' => 'Lie_Idle', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true]],
+                ],
+            ],
+        ],
+    ]);
+});
+
+test('excludes inactive model steps from an action configuration', function () {
+    $model = PetModel::factory()->create();
+    $action = PetAction::factory()->create(['key' => 'scratch']);
+    $modelAction = PetModelAction::factory()->for($model)->for($action)->create();
+    $step = PetAnimationStep::factory()->create(['key' => 'scratch.loop']);
+    $modelStep = PetModelAnimationStep::factory()->for($model)->for($step, 'animationStep')->create(['is_available' => false]);
+
+    PetModelAnimationStepClip::factory()->for($modelStep, 'modelStep')->create(['clip_name' => 'Scratch']);
+    PetModelActionStep::factory()->for($modelAction)->for($step, 'animationStep')->create(['position' => 1]);
+
+    expect($model->animationConfiguration())->toBe([]);
+});
+
+test('seeds KayKit adventurers with configured game action sequences', function () {
     $this->seed(PetCatalogSeeder::class);
 
     $knight = Character::query()->where('name', 'Рыцарь')->sole();
 
     expect($knight->petModel->asset_path)->toBe('/models/kaykit-adventurers/Knight.glb');
-    expect($knight->enabled_animation_clips)->toHaveCount(76);
-    expect($knight->enabled_animation_clips)->toContain('Idle', 'Walking_A', 'Spellcasting');
-    expect($knight->petModel->animationClipNames())->toEqual($knight->enabled_animation_clips);
+    expect($knight->petModel->animationClipNames())->toHaveCount(17);
+    expect($knight->petModel->animationClipNames())->toContain('Idle', 'Walking_A', 'Lie_Down', 'Lie_StandUp');
+    expect($knight->petModel->animationConfiguration()['sleep']['steps'])->toHaveCount(3);
     expect(Character::query()->whereHas('petModel.type', fn ($query) => $query->where('key', 'adventurer'))->count())->toBe(5);
 });
 
@@ -67,7 +133,6 @@ test('maps an action configuration to its pet model and action', function () {
     $action = PetAction::factory()->create(['key' => 'dance']);
     $configuration = PetModelAction::factory()->for($model)->for($action)->create([
         'is_available' => false,
-        'animation_clips' => ['primary' => ['Dance']],
     ]);
 
     $configuration->load('petModel', 'petAction');
@@ -75,5 +140,4 @@ test('maps an action configuration to its pet model and action', function () {
     expect($configuration->petModel->is($model))->toBeTrue();
     expect($configuration->petAction->is($action))->toBeTrue();
     expect($configuration->is_available)->toBeFalse();
-    expect($configuration->animation_clips)->toBe(['primary' => ['Dance']]);
 });

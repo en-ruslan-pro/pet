@@ -41,7 +41,7 @@ class PetModel extends Model
     public function actions(): BelongsToMany
     {
         return $this->belongsToMany(PetAction::class)
-            ->withPivot(['animation_clips', 'execution_configuration', 'interaction_points', 'is_available'])
+            ->withPivot(['execution_configuration', 'interaction_points', 'is_available'])
             ->withTimestamps();
     }
 
@@ -49,6 +49,70 @@ class PetModel extends Model
     public function petModelActions(): HasMany
     {
         return $this->hasMany(PetModelAction::class);
+    }
+
+    /** @return HasMany<PetModelAnimationStep, $this> */
+    public function animationSteps(): HasMany
+    {
+        return $this->hasMany(PetModelAnimationStep::class);
+    }
+
+    /**
+     * @return array<string, array{steps: list<array{key: string, durationSeconds: ?int, clips: list<array{name: string, weight: int, playbackRate: float, isLooping: bool}>}>}>
+     */
+    public function animationConfiguration(): array
+    {
+        $this->loadMissing([
+            'animationSteps.animationStep',
+            'animationSteps.clips',
+            'petModelActions.petAction',
+            'petModelActions.steps.animationStep',
+        ]);
+
+        $modelSteps = $this->animationSteps
+            ->where('is_available', true)
+            ->keyBy('pet_animation_step_id');
+
+        $configuration = [];
+
+        foreach ($this->petModelActions->where('is_available', true) as $action) {
+            $steps = [];
+
+            foreach ($action->steps->where('is_available', true) as $step) {
+                $modelStep = $modelSteps->get($step->pet_animation_step_id);
+
+                if (! $modelStep instanceof PetModelAnimationStep || $step->animationStep === null) {
+                    continue;
+                }
+
+                $clips = [];
+
+                foreach ($modelStep->clips as $clip) {
+                    $clips[] = [
+                        'name' => $clip->clip_name,
+                        'weight' => $clip->weight,
+                        'playbackRate' => $clip->playback_rate,
+                        'isLooping' => $clip->is_looping,
+                    ];
+                }
+
+                if ($clips === []) {
+                    continue;
+                }
+
+                $steps[] = [
+                    'key' => $step->animationStep->key,
+                    'durationSeconds' => $step->duration_seconds,
+                    'clips' => $clips,
+                ];
+            }
+
+            if ($steps !== []) {
+                $configuration[$action->petAction->key] = ['steps' => $steps];
+            }
+        }
+
+        return $configuration;
     }
 
     /** @return HasMany<Pet, $this> */
@@ -62,11 +126,9 @@ class PetModel extends Model
     {
         $clipNames = [];
 
-        foreach ($this->petModelActions()
-            ->where('is_available', true)
-            ->get() as $action) {
-            foreach ($action->animation_clips['primary'] ?? [] as $clip) {
-                $clipNames[] = $clip;
+        foreach ($this->animationSteps()->with('clips')->get() as $step) {
+            foreach ($step->clips as $clip) {
+                $clipNames[] = $clip->clip_name;
             }
         }
 

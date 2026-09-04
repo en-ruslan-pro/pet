@@ -59,13 +59,18 @@ class RoomController extends Controller
         $this->grantAccess($request, $room);
         $room->refreshPetNeeds();
         $room->update(['tv_connected_at' => now()]);
-        $room->load('character.petModel');
+        $room->load([
+            'character.petModel.animationSteps.animationStep',
+            'character.petModel.animationSteps.clips',
+            'character.petModel.petModelActions.petAction',
+            'character.petModel.petModelActions.steps.animationStep',
+        ]);
 
         return view('tv.show', [
             'room' => $room,
             'character' => $room->character === null ? null : [
                 'assetPath' => $room->character->petModel->asset_path,
-                'enabledAnimationClips' => $room->character->enabled_animation_clips,
+                'animationConfiguration' => $room->character->petModel->animationConfiguration(),
             ],
             'reverb' => [
                 'appKey' => config('broadcasting.connections.reverb.key'),
@@ -106,6 +111,15 @@ class RoomController extends Controller
     public function sendPetAction(Request $request, Room $room, string $action): JsonResponse
     {
         $this->ensureAccess($request, $room);
+        $behavior = ['feed' => 'eat', 'play' => 'play', 'sleep' => 'sleep'][$action];
+        $room->load('character.petModel');
+
+        if ($room->character !== null) {
+            $availableActions = $room->character->petModel->animationConfiguration();
+
+            abort_unless(isset($availableActions[$behavior]), 422, 'Действие недоступно для выбранной модели.');
+        }
+
         DB::transaction(function () use ($room, $action): void {
             $room->performPetAction($action);
             RoomCommandRequested::dispatch($room, $action);

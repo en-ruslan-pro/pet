@@ -6,10 +6,8 @@ use Database\Factories\PetModelActionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/**
- * @property array{primary?: list<string>}|null $animation_clips
- */
 class PetModelAction extends Model
 {
     /** @use HasFactory<PetModelActionFactory> */
@@ -19,7 +17,6 @@ class PetModelAction extends Model
     protected $fillable = [
         'pet_model_id',
         'pet_action_id',
-        'animation_clips',
         'execution_configuration',
         'interaction_points',
         'is_available',
@@ -29,7 +26,6 @@ class PetModelAction extends Model
     protected function casts(): array
     {
         return [
-            'animation_clips' => 'array',
             'execution_configuration' => 'array',
             'interaction_points' => 'array',
             'is_available' => 'boolean',
@@ -46,5 +42,11 @@ class PetModelAction extends Model
     public function petAction(): BelongsTo
     {
         return $this->belongsTo(PetAction::class);
+    }
+
+    /** @return HasMany<PetModelActionStep, $this> */
+    public function steps(): HasMany
+    {
+        return $this->hasMany(PetModelActionStep::class)->orderBy('position');
     }
 }

@@ -201,10 +201,8 @@
                 <label for="demo-character" class="demo-controls__title">Персонаж</label>
                 <select id="demo-character" @disabled($characters->isEmpty())>
                     @forelse ($characters as $character)
-                        <option value="{{ $character->id }}" data-character='@json([
-                            'assetPath' => $character->petModel->asset_path,
-                            'enabledAnimationClips' => $character->enabled_animation_clips,
-                        ])'>{{ $character->name }}</option>
+                        @php($sceneCharacter = ['assetPath' => $character->petModel->asset_path, 'animationConfiguration' => $character->petModel->animationConfiguration()])
+                        <option value="{{ $character->id }}" data-character='@json($sceneCharacter)'>{{ $character->name }}</option>
                     @empty
                         <option value="">Персонажи не найдены</option>
                     @endforelse

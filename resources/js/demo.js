@@ -351,6 +351,9 @@ if (!window.WebGLRenderingContext) {
     let walkPath = [];
     let walkPathDistance = 0;
     let animationClips = [];
+    let animationConfiguration = {};
+    let actionSequence = [];
+    let actionSequenceIndex = 0;
     let selectedAnimation;
     let queuedAction;
     let pendingRemoteAction;
@@ -384,7 +387,7 @@ if (!window.WebGLRenderingContext) {
             this.needs.happiness = Math.max(0, this.needs.happiness - delta / 900);
         }
 
-        chooseAction() {
+        chooseAction(availableActions) {
             const candidates = [
                 ['eat', Math.max(1, (this.needs.hunger - 50) * 2)],
                 ['sleep', Math.max(1, (45 - this.needs.energy) * 2)],
@@ -393,7 +396,13 @@ if (!window.WebGLRenderingContext) {
                 ['walk', 4],
                 ['sit', 3],
                 ['scratch', 2],
-            ].map(([action, weight]) => [action, action === this.lastAction ? weight * 0.35 : weight]);
+            ]
+                .filter(([action]) => availableActions === undefined || availableActions.includes(action))
+                .map(([action, weight]) => [action, action === this.lastAction ? weight * 0.35 : weight]);
+
+            if (candidates.length === 0) {
+                return undefined;
+            }
             const totalWeight = candidates.reduce((total, [, weight]) => total + weight, 0);
             let cursor = Math.random() * totalWeight;
 
@@ -405,7 +414,7 @@ if (!window.WebGLRenderingContext) {
                 }
             }
 
-            return 'idle';
+            return candidates[0][0];
         }
 
         completeAction(action) {
@@ -436,20 +445,47 @@ if (!window.WebGLRenderingContext) {
     const petBrain = new PetBrain();
 
     const randomDuration = ([minimum, maximum]) => minimum + Math.random() * (maximum - minimum);
-    const findAnimationClip = (clips, candidates) => clips.find((clip) => candidates.some((candidate) => clip.name.toLowerCase().includes(candidate)));
+    const chooseWeightedClip = (step) => {
+        const clipsByName = new Map(animationClips.map((clip) => [clip.name, clip]));
+        const choices = (step?.clips ?? [])
+            .map((definition) => ({ definition, clip: clipsByName.get(definition.name) }))
+            .filter(({ clip }) => clip !== undefined);
+        const totalWeight = choices.reduce((total, { definition }) => total + Math.max(1, definition.weight ?? 1), 0);
 
-    const playAnimation = (clip) => {
-        if (clip === undefined || mixer === undefined) {
+        if (totalWeight === 0) {
+            return undefined;
+        }
+
+        let threshold = Math.random() * totalWeight;
+
+        return choices.find(({ definition }) => {
+            threshold -= Math.max(1, definition.weight ?? 1);
+
+            return threshold <= 0;
+        }) ?? choices.at(-1);
+    };
+
+    const playAnimation = (selection) => {
+        if (selection === undefined || mixer === undefined) {
             return;
         }
 
+        const clip = selection.clip ?? selection;
+        const playbackRate = selection.definition?.playbackRate ?? 1;
+        const isLooping = selection.definition?.isLooping ?? true;
         const nextAnimation = mixer.clipAction(clip);
 
         if (nextAnimation === activeAnimation) {
             return;
         }
 
-        nextAnimation.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(0.35).play();
+        nextAnimation
+            .reset()
+            .setEffectiveTimeScale(playbackRate)
+            .setEffectiveWeight(1)
+            .setLoop(isLooping ? THREE.LoopRepeat : THREE.LoopOnce, isLooping ? Infinity : 1)
+            .clampWhenFinished = !isLooping;
+        nextAnimation.fadeIn(0.35).play();
         activeAnimation?.fadeOut(0.35);
         activeAnimation = nextAnimation;
     };
@@ -460,18 +496,15 @@ if (!window.WebGLRenderingContext) {
         actionDuration = options.duration ?? randomDuration(actionDurations[nextAction]);
         actionLabel.textContent = actionNames[nextAction];
 
-        const defaultClip = clips[0];
-        const idleClip = findAnimationClip(clips, ['idle', 'stand']) ?? defaultClip;
-        const actionClips = {
-            idle: idleClip,
-            walk: findAnimationClip(clips, ['walk']) ?? defaultClip,
-            sit: findAnimationClip(clips, ['sit', 'rest', 'look']) ?? idleClip,
-            eat: findAnimationClip(clips, ['eat', 'feed']) ?? idleClip,
-            sleep: findAnimationClip(clips, ['sleep', 'rest']) ?? idleClip,
-            play: findAnimationClip(clips, ['play', 'jump']) ?? idleClip,
-            scratch: findAnimationClip(clips, ['scratch', 'stand']) ?? idleClip,
-        };
-        playAnimation(actionClips[nextAction]);
+        actionSequence = animationConfiguration[nextAction]?.steps ?? [];
+        actionSequenceIndex = 0;
+        const sequenceStep = actionSequence[0];
+        const selection = chooseWeightedClip(sequenceStep) ?? (clips[0] === undefined ? undefined : { clip: clips[0], definition: {} });
+        playAnimation(selection);
+        actionDuration = sequenceStep?.durationSeconds
+            ?? (!selection?.definition?.isLooping && selection !== undefined
+                ? selection.clip.duration / (selection.definition.playbackRate ?? 1)
+                : options.duration ?? randomDuration(actionDurations[nextAction]));
 
         if (nextAction === 'walk' && cat !== undefined) {
             walkStart = cat.position.clone();
@@ -488,8 +521,29 @@ if (!window.WebGLRenderingContext) {
         }
     };
 
+    const advanceActionSequence = () => {
+        actionSequenceIndex += 1;
+        const sequenceStep = actionSequence[actionSequenceIndex];
+
+        if (sequenceStep === undefined) {
+            return false;
+        }
+
+        const selection = chooseWeightedClip(sequenceStep);
+
+        if (selection === undefined) {
+            return false;
+        }
+
+        actionElapsed = 0;
+        actionDuration = sequenceStep.durationSeconds ?? selection.clip.duration / (selection.definition.playbackRate ?? 1);
+        playAnimation(selection);
+
+        return true;
+    };
+
     const beginBehavior = (action) => {
-        if (cat === undefined || mixer === undefined) {
+        if (cat === undefined || mixer === undefined || action === undefined || animationConfiguration[action] === undefined) {
             return;
         }
 
@@ -507,7 +561,7 @@ if (!window.WebGLRenderingContext) {
         setAction('walk', animationClips, { target, duration: Math.max(2.5, distance / 1.15) });
     };
 
-    const startAutonomousBehavior = () => beginBehavior(petBrain.chooseAction());
+    const startAutonomousBehavior = () => beginBehavior(petBrain.chooseAction(Object.keys(animationConfiguration)));
 
     const performRemoteAction = (action, needs) => {
         if (needs !== undefined) {
@@ -516,7 +570,7 @@ if (!window.WebGLRenderingContext) {
 
         const behavior = { feed: 'eat', play: 'play', sleep: 'sleep' }[action];
 
-        if (behavior === undefined) {
+        if (behavior === undefined || animationConfiguration[behavior] === undefined) {
             return;
         }
 
@@ -567,7 +621,7 @@ if (!window.WebGLRenderingContext) {
         const character = selectedCharacter();
 
         if (character !== null) {
-            loadCharacter(character.assetPath, character.enabledAnimationClips);
+            loadCharacter(character.assetPath, character.animationConfiguration);
         }
     });
 
@@ -589,7 +643,7 @@ if (!window.WebGLRenderingContext) {
         }
 
         if (event.data?.action === 'sync-character' && event.data.character?.assetPath) {
-            loadCharacter(event.data.character.assetPath, event.data.character.enabledAnimationClips);
+            loadCharacter(event.data.character.assetPath, event.data.character.animationConfiguration);
 
             return;
         }
@@ -597,8 +651,8 @@ if (!window.WebGLRenderingContext) {
         performRemoteAction(event.data?.action, event.data?.needs);
     });
 
-    const loadCharacter = (assetPath, enabledAnimationClips = null) => {
-        const characterSignature = JSON.stringify([assetPath, enabledAnimationClips]);
+    const loadCharacter = (assetPath, nextAnimationConfiguration = {}) => {
+        const characterSignature = JSON.stringify([assetPath, nextAnimationConfiguration]);
 
         if (requestedCharacterSignature === characterSignature) {
             return;
@@ -633,9 +687,8 @@ if (!window.WebGLRenderingContext) {
             room.add(cat);
 
             mixer = new THREE.AnimationMixer(cat);
-            animationClips = enabledAnimationClips === null
-                ? gltf.animations
-                : gltf.animations.filter((clip) => enabledAnimationClips.includes(clip.name));
+            animationConfiguration = nextAnimationConfiguration ?? {};
+            animationClips = gltf.animations;
             cat.userData.animationClips = animationClips;
             animationControl.options.length = 1;
             animationClips.forEach((clip, index) => {
@@ -661,7 +714,7 @@ if (!window.WebGLRenderingContext) {
 
     loadCharacter(
         initialCharacter?.assetPath ?? defaultCharacter?.assetPath ?? '/models/stripe-the-cat.glb',
-        initialCharacter?.enabledAnimationClips ?? defaultCharacter?.enabledAnimationClips ?? null,
+        initialCharacter?.animationConfiguration ?? defaultCharacter?.animationConfiguration ?? {},
     );
 
     const timer = new THREE.Timer();
@@ -702,8 +755,10 @@ if (!window.WebGLRenderingContext) {
                 queuedAction = undefined;
                 setAction(nextAction, cat.userData.animationClips);
             } else if (selectedAnimation === undefined && actionElapsed >= actionDuration) {
-                petBrain.completeAction(currentAction);
-                startAutonomousBehavior();
+                if (!advanceActionSequence()) {
+                    petBrain.completeAction(currentAction);
+                    startAutonomousBehavior();
+                }
             }
         }
 

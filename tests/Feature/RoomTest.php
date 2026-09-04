@@ -97,19 +97,18 @@ test('shows TV connection diagnostics only in debug mode', function () {
         ->assertSee('debug=1', false);
 });
 
-test('passes the selected character model and enabled animations to the tv scene', function () {
+test('passes the selected character model and animation configuration to the tv scene', function () {
     $model = PetModel::factory()->create([
         'asset_path' => '/models/kaykit-adventurers/Knight.glb',
     ]);
     $character = Character::factory()->for($model)->create([
-        'enabled_animation_clips' => ['Idle', 'Walking_A'],
     ]);
     $room = Room::factory()->for($character)->create(['code' => 'CHAR01']);
 
     $this->get(route('tv.show', $room))
         ->assertSee('data-character', false)
         ->assertSee('\\/models\\/kaykit-adventurers\\/Knight.glb', false)
-        ->assertSee('Walking_A')
+        ->assertSee('animationConfiguration')
         ->assertSee('character=', false);
 });
 

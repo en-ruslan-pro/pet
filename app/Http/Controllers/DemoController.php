@@ -11,7 +11,12 @@ class DemoController extends Controller
     {
         return view('demo', [
             'characters' => Character::query()
-                ->with('petModel')
+                ->with([
+                    'petModel.animationSteps.animationStep',
+                    'petModel.animationSteps.clips',
+                    'petModel.petModelActions.petAction',
+                    'petModel.petModelActions.steps.animationStep',
+                ])
                 ->orderBy('name')
                 ->get(),
         ]);

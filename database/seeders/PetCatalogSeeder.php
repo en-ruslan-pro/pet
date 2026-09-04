@@ -4,8 +4,10 @@ namespace Database\Seeders;
 
 use App\Models\Character;
 use App\Models\PetAction;
+use App\Models\PetAnimationStep;
 use App\Models\PetModel;
 use App\Models\PetModelAction;
+use App\Models\PetModelAnimationStep;
 use App\Models\PetType;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -66,18 +68,19 @@ class PetCatalogSeeder extends Seeder
                 ],
             );
 
-            PetModelAction::query()->updateOrCreate(
+            $modelAction = PetModelAction::query()->updateOrCreate(
                 [
                     'pet_model_id' => $tabby->id,
                     'pet_action_id' => $action->id,
                 ],
                 [
-                    'animation_clips' => ['primary' => $clips],
                     'execution_configuration' => $executionConfiguration,
                     'interaction_points' => $interactionPoints,
                     'is_available' => true,
                 ],
             );
+
+            $this->configureActionSteps($tabby, $modelAction, [["{$key}.loop", $name, $clips, true, null]]);
         }
 
         $this->seedKayKitAdventurers();
@@ -96,19 +99,6 @@ class PetCatalogSeeder extends Seeder
                 ],
             ],
         );
-
-        $animationClips = $this->kayKitAnimationClips();
-        $actions = [];
-
-        foreach ($animationClips as $clip) {
-            $actions[$clip] = PetAction::query()->updateOrCreate(
-                ['key' => 'kaykit-'.Str::slug($clip)],
-                [
-                    'name' => $clip,
-                    'configuration' => ['category' => 'kaykit'],
-                ],
-            );
-        }
 
         foreach ([
             'Barbarian' => ['Варвар', 'Варвар'],
@@ -132,46 +122,80 @@ class PetCatalogSeeder extends Seeder
                 [
                     'pet_model_id' => $model->id,
                     'default_name' => $defaultName,
-                    'enabled_animation_clips' => $animationClips,
                 ],
             );
 
-            foreach ($actions as $clip => $action) {
-                PetModelAction::query()->updateOrCreate(
+            foreach ($this->kayKitActions() as $key => [$name, $steps]) {
+                $action = PetAction::query()->updateOrCreate(
+                    ['key' => $key],
+                    ['name' => $name, 'configuration' => ['category' => 'autonomous']],
+                );
+                $modelAction = PetModelAction::query()->updateOrCreate(
                     [
                         'pet_model_id' => $model->id,
                         'pet_action_id' => $action->id,
                     ],
                     [
-                        'animation_clips' => ['primary' => [$clip]],
                         'execution_configuration' => null,
                         'interaction_points' => null,
                         'is_available' => true,
                     ],
                 );
+
+                $this->configureActionSteps($model, $modelAction, $steps);
             }
         }
     }
 
-    /** @return list<string> */
-    private function kayKitAnimationClips(): array
+    /**
+     * @param  list<array{0: string, 1: string, 2: list<string>, 3: bool, 4: ?int}>  $steps
+     */
+    private function configureActionSteps(PetModel $model, PetModelAction $modelAction, array $steps): void
+    {
+        foreach ($steps as $position => [$key, $name, $clips, $isLooping, $durationSeconds]) {
+            $step = PetAnimationStep::query()->updateOrCreate(['key' => $key], ['name' => $name]);
+            $modelStep = PetModelAnimationStep::query()->updateOrCreate(
+                ['pet_model_id' => $model->id, 'pet_animation_step_id' => $step->id],
+                ['is_available' => true],
+            );
+
+            foreach ($clips as $clip) {
+                $modelStep->clips()->updateOrCreate(
+                    ['clip_name' => $clip],
+                    ['weight' => 1, 'playback_rate' => 1, 'is_looping' => $isLooping],
+                );
+            }
+
+            $modelAction->steps()->updateOrCreate(
+                ['position' => $position + 1],
+                [
+                    'pet_animation_step_id' => $step->id,
+                    'is_available' => true,
+                    'duration_seconds' => $durationSeconds,
+                ],
+            );
+        }
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: list<array{0: string, 1: string, 2: list<string>, 3: bool, 4: ?int}>}>
+     */
+    private function kayKitActions(): array
     {
         return [
-            '1H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Slice_Horizontal', '1H_Melee_Attack_Stab',
-            '1H_Ranged_Aiming', '1H_Ranged_Reload', '1H_Ranged_Shoot', '1H_Ranged_Shooting',
-            '2H_Melee_Attack_Chop', '2H_Melee_Attack_Slice', '2H_Melee_Attack_Spin', '2H_Melee_Attack_Spinning', '2H_Melee_Attack_Stab', '2H_Melee_Idle',
-            '2H_Ranged_Aiming', '2H_Ranged_Reload', '2H_Ranged_Shoot', '2H_Ranged_Shooting',
-            'Block', 'Block_Attack', 'Block_Hit', 'Blocking', 'Cheer', 'Death_A', 'Death_A_Pose', 'Death_B', 'Death_B_Pose',
-            'Dodge_Backward', 'Dodge_Forward', 'Dodge_Left', 'Dodge_Right',
-            'Dualwield_Melee_Attack_Chop', 'Dualwield_Melee_Attack_Slice', 'Dualwield_Melee_Attack_Stab',
-            'Hit_A', 'Hit_B', 'Idle', 'Interact', 'Jump_Full_Long', 'Jump_Full_Short', 'Jump_Idle', 'Jump_Land', 'Jump_Start',
-            'Lie_Down', 'Lie_Idle', 'Lie_Pose', 'Lie_StandUp', 'PickUp',
-            'Running_A', 'Running_B', 'Running_Strafe_Left', 'Running_Strafe_Right',
-            'Sit_Chair_Down', 'Sit_Chair_Idle', 'Sit_Chair_Pose', 'Sit_Chair_StandUp',
-            'Sit_Floor_Down', 'Sit_Floor_Idle', 'Sit_Floor_Pose', 'Sit_Floor_StandUp',
-            'Spellcast_Long', 'Spellcast_Raise', 'Spellcast_Shoot', 'Spellcasting', 'T-Pose', 'Throw',
-            'Unarmed_Idle', 'Unarmed_Melee_Attack_Kick', 'Unarmed_Melee_Attack_Punch_A', 'Unarmed_Melee_Attack_Punch_B', 'Unarmed_Pose', 'Use_Item',
-            'Walking_A', 'Walking_B', 'Walking_Backwards', 'Walking_C',
+            'idle' => ['Ожидает', [['idle.loop', 'Ожидание', ['Idle', 'Unarmed_Idle'], true, null]]],
+            'walk' => ['Гуляет', [['walk.loop', 'Прогулка', ['Walking_A', 'Walking_B'], true, null]]],
+            'sit' => ['Сидит', [
+                ['sit.start', 'Садится', ['Sit_Chair_Down', 'Sit_Floor_Down'], false, null],
+                ['sit.loop', 'Сидит', ['Sit_Chair_Idle', 'Sit_Floor_Idle'], true, 8],
+                ['sit.finish', 'Встаёт', ['Sit_Chair_StandUp', 'Sit_Floor_StandUp'], false, null],
+            ]],
+            'sleep' => ['Спит', [
+                ['sleep.start', 'Ложится', ['Lie_Down'], false, null],
+                ['sleep.loop', 'Спит', ['Lie_Idle', 'Lie_Pose'], true, 10],
+                ['sleep.finish', 'Встаёт после сна', ['Lie_StandUp'], false, null],
+            ]],
+            'play' => ['Играет', [['play.loop', 'Играет', ['Cheer', 'Jump_Idle', 'Spellcasting'], false, null]]],
         ];
     }
 }

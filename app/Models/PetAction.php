@@ -32,7 +32,7 @@ class PetAction extends Model
     public function models(): BelongsToMany
     {
         return $this->belongsToMany(PetModel::class)
-            ->withPivot(['animation_clips', 'execution_configuration', 'interaction_points', 'is_available'])
+            ->withPivot(['execution_configuration', 'interaction_points', 'is_available'])
             ->withTimestamps();
     }
 

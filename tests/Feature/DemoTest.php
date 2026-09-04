@@ -37,14 +37,13 @@ test('renders selectable characters for the demo scene', function () {
     ]);
     $character = Character::factory()->for($model)->create([
         'name' => 'Маг',
-        'enabled_animation_clips' => ['Idle', 'Walking_A'],
     ]);
 
     $this->get(route('demo'))
         ->assertSee('id="demo-character"', false)
         ->assertSee($character->name)
         ->assertSee('data-character', false)
-        ->assertSee('Walking_A');
+        ->assertSee('animationConfiguration');
 });
 
 test('hides scene controls in tv mode', function () {

@@ -28,6 +28,15 @@ test('shows the character catalog settings to administrators', function () {
         ->get('/dostup/characters/create')
         ->assertSee('Название')
         ->assertSee('Имя по умолчанию')
-        ->assertSee('3D-модель')
-        ->assertSee('Включённые анимации');
+        ->assertSee('3D-модель');
+});
+
+test('shows animation steps and game action configuration for a pet model', function () {
+    $user = User::factory()->create();
+    $user->assignRole(Role::findOrCreate('admin'));
+
+    $this->actingAs($user)
+        ->get('/dostup/pet-models/create')
+        ->assertSee('Внутренние шаги и варианты клипов')
+        ->assertSee('Игровые действия');
 });

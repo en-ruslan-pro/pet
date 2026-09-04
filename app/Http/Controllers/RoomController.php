@@ -118,10 +118,13 @@ class RoomController extends Controller
             $availableActions = $room->character->petModel->animationConfiguration();
 
             abort_unless(isset($availableActions[$behavior]), 422, 'Действие недоступно для выбранной модели.');
+            $needEffects = $availableActions[$behavior]['settings']['need_effects'] ?? [];
+        } else {
+            $needEffects = [];
         }
 
-        DB::transaction(function () use ($room, $action): void {
-            $room->performPetAction($action);
+        DB::transaction(function () use ($room, $action, $needEffects): void {
+            $room->performPetAction($action, $needEffects);
             RoomCommandRequested::dispatch($room, $action);
         });
 

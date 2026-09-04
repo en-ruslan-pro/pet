@@ -64,7 +64,7 @@ class PetCatalogSeeder extends Seeder
                 ['key' => $key],
                 [
                     'name' => $name,
-                    'configuration' => ['category' => 'autonomous'],
+                    'configuration' => $this->actionSettings($key),
                 ],
             );
 
@@ -128,7 +128,7 @@ class PetCatalogSeeder extends Seeder
             foreach ($this->kayKitActions() as $key => [$name, $steps]) {
                 $action = PetAction::query()->updateOrCreate(
                     ['key' => $key],
-                    ['name' => $name, 'configuration' => ['category' => 'autonomous']],
+                    ['name' => $name, 'configuration' => $this->actionSettings($key)],
                 );
                 $modelAction = PetModelAction::query()->updateOrCreate(
                     [
@@ -197,5 +197,17 @@ class PetCatalogSeeder extends Seeder
             ]],
             'play' => ['Играет', [['play.loop', 'Играет', ['Cheer', 'Jump_Idle', 'Spellcasting'], false, null]]],
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function actionSettings(string $key): array
+    {
+        return match ($key) {
+            'eat' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['hunger' => -30, 'energy' => 0, 'happiness' => 5]],
+            'sleep' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['hunger' => 5, 'energy' => 35, 'happiness' => 0]],
+            'play' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['hunger' => 5, 'energy' => -15, 'happiness' => 20]],
+            'scratch' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['hunger' => 0, 'energy' => 0, 'happiness' => 6]],
+            default => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['hunger' => 0, 'energy' => 0, 'happiness' => 0]],
+        };
     }
 }

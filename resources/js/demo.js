@@ -320,24 +320,6 @@ if (!window.WebGLRenderingContext) {
     updateCameraLight();
     updateHemisphereLight();
 
-    const actionNames = {
-        idle: 'Отдыхает',
-        walk: 'Идёт',
-        sit: 'Наблюдает',
-        eat: 'Ест',
-        sleep: 'Спит',
-        play: 'Играет',
-        scratch: 'Точит когти',
-    };
-    const actionDurations = {
-        idle: [5, 15],
-        walk: [4, 7],
-        sit: [5, 10],
-        eat: [5, 7],
-        sleep: [9, 13],
-        play: [6, 9],
-        scratch: [5, 8],
-    };
     const walkTargets = [[-2.1, -0.25], [1.85, 0.95], [-1.25, 2.1], [2.25, -1.75]];
 
     let cat;
@@ -358,13 +340,6 @@ if (!window.WebGLRenderingContext) {
     let queuedAction;
     let pendingRemoteAction;
     let requestedCharacterSignature;
-
-    const behaviorTargets = {
-        eat: 'foodBowl',
-        play: 'toyMouse',
-        scratch: 'scratchingPost',
-        sit: 'sofa',
-    };
 
     class PetBrain {
         constructor(needs = {}) {
@@ -387,18 +362,10 @@ if (!window.WebGLRenderingContext) {
             this.needs.happiness = Math.max(0, this.needs.happiness - delta / 900);
         }
 
-        chooseAction(availableActions) {
-            const candidates = [
-                ['eat', Math.max(1, (this.needs.hunger - 50) * 2)],
-                ['sleep', Math.max(1, (45 - this.needs.energy) * 2)],
-                ['play', Math.max(2, (45 - this.needs.happiness) * 2)],
-                ['idle', 4],
-                ['walk', 4],
-                ['sit', 3],
-                ['scratch', 2],
-            ]
-                .filter(([action]) => availableActions === undefined || availableActions.includes(action))
-                .map(([action, weight]) => [action, action === this.lastAction ? weight * 0.35 : weight]);
+        chooseAction(actions) {
+            const candidates = Object.entries(actions)
+                .filter(([, definition]) => definition.settings?.is_autonomous !== false)
+                .map(([action, definition]) => [action, (definition.settings?.autonomous_weight ?? 1) * (action === this.lastAction ? 0.35 : 1)]);
 
             if (candidates.length === 0) {
                 return undefined;
@@ -419,26 +386,12 @@ if (!window.WebGLRenderingContext) {
 
         completeAction(action) {
             this.lastAction = action;
-
-            if (action === 'eat') {
-                this.needs.hunger = Math.max(0, this.needs.hunger - 25);
-                this.needs.happiness = Math.min(100, this.needs.happiness + 3);
-            }
-
-            if (action === 'sleep') {
-                this.needs.energy = Math.min(100, this.needs.energy + 25);
-                this.needs.hunger = Math.min(100, this.needs.hunger + 3);
-            }
-
-            if (action === 'play') {
-                this.needs.energy = Math.max(0, this.needs.energy - 12);
-                this.needs.happiness = Math.min(100, this.needs.happiness + 15);
-                this.needs.hunger = Math.min(100, this.needs.hunger + 4);
-            }
-
-            if (action === 'scratch') {
-                this.needs.happiness = Math.min(100, this.needs.happiness + 6);
-            }
+            const effects = animationConfiguration[action]?.settings?.need_effects ?? {};
+            Object.entries(effects).forEach(([need, effect]) => {
+                if (Number.isFinite(effect) && need in this.needs) {
+                    this.needs[need] = THREE.MathUtils.clamp(this.needs[need] + effect, 0, 100);
+                }
+            });
         }
     }
 
@@ -493,8 +446,10 @@ if (!window.WebGLRenderingContext) {
     const setAction = (nextAction, clips, options = {}) => {
         currentAction = nextAction;
         actionElapsed = 0;
-        actionDuration = options.duration ?? randomDuration(actionDurations[nextAction]);
-        actionLabel.textContent = actionNames[nextAction];
+        const actionDefinition = animationConfiguration[nextAction] ?? {};
+        const duration = actionDefinition.settings?.duration_seconds ?? [5, 10];
+        actionDuration = options.duration ?? randomDuration(duration);
+        actionLabel.textContent = actionDefinition.settings?.name ?? nextAction;
 
         actionSequence = animationConfiguration[nextAction]?.steps ?? [];
         actionSequenceIndex = 0;
@@ -504,7 +459,7 @@ if (!window.WebGLRenderingContext) {
         actionDuration = sequenceStep?.durationSeconds
             ?? (!selection?.definition?.isLooping && selection !== undefined
                 ? selection.clip.duration / (selection.definition.playbackRate ?? 1)
-                : options.duration ?? randomDuration(actionDurations[nextAction]));
+                : options.duration ?? randomDuration(duration));
 
         if (nextAction === 'walk' && cat !== undefined) {
             walkStart = cat.position.clone();
@@ -547,7 +502,7 @@ if (!window.WebGLRenderingContext) {
             return;
         }
 
-        const point = behaviorTargets[action];
+        const point = animationConfiguration[action].settings?.targetRoomItemKey?.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 
         if (point === undefined) {
             setAction(action, animationClips);
@@ -561,7 +516,7 @@ if (!window.WebGLRenderingContext) {
         setAction('walk', animationClips, { target, duration: Math.max(2.5, distance / 1.15) });
     };
 
-    const startAutonomousBehavior = () => beginBehavior(petBrain.chooseAction(Object.keys(animationConfiguration)));
+    const startAutonomousBehavior = () => beginBehavior(petBrain.chooseAction(animationConfiguration));
 
     const performRemoteAction = (action, needs) => {
         if (needs !== undefined) {

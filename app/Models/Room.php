@@ -92,9 +92,25 @@ class Room extends Model
         return $this;
     }
 
-    public function performPetAction(string $action): self
+    /** @param array<string, int|float> $needEffects */
+    public function performPetAction(string $action, array $needEffects = []): self
     {
         $this->refreshPetNeeds();
+
+        if ($needEffects !== []) {
+            $changes = [];
+
+            foreach ($this->petNeeds() as $need => $value) {
+                $changes[$need] = (int) max(0, min(100, $value + ($needEffects[$need] ?? 0)));
+            }
+
+            $this->forceFill([
+                ...$changes,
+                'pet_needs_updated_at' => now(),
+            ])->save();
+
+            return $this;
+        }
 
         $changes = match ($action) {
             'feed' => ['hunger' => max(0, $this->hunger - 30), 'happiness' => min(100, $this->happiness + 5)],

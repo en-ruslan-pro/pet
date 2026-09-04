@@ -31,15 +31,14 @@ test('seeds the cat model with its supported action configuration', function () 
     ]);
     expect($sleep->execution_configuration)->toBe(['duration_seconds' => [9, 13]]);
     expect($sleep->interaction_points)->toBe(['room_item_key' => 'bed']);
-    expect($tabby->animationConfiguration()['sleep'])->toBe([
-        'steps' => [[
+    expect($tabby->animationConfiguration()['sleep']['steps'])->toBe([[
             'key' => 'sleep.loop',
             'durationSeconds' => null,
             'clips' => [
                 ['name' => 'Rest', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true],
                 ['name' => 'Sleep', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true],
             ],
-        ]],
+        ],
     ]);
     expect($character->default_name)->toBe('Мурка');
     expect($character->petModel->is($tabby))->toBeTrue();
@@ -67,9 +66,7 @@ test('builds an ordered model action configuration from active animation steps',
     PetModelActionStep::factory()->for($modelAction)->for($loop, 'animationStep')->create(['position' => 2, 'duration_seconds' => 8]);
     PetModelActionStep::factory()->for($modelAction)->for($start, 'animationStep')->create(['position' => 1]);
 
-    expect($model->animationConfiguration())->toBe([
-        'sleep' => [
-            'steps' => [
+    expect($model->animationConfiguration()['sleep']['steps'])->toBe([
                 [
                     'key' => 'sleep.start',
                     'durationSeconds' => null,
@@ -80,8 +77,6 @@ test('builds an ordered model action configuration from active animation steps',
                     'durationSeconds' => 8,
                     'clips' => [['name' => 'Lie_Idle', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true]],
                 ],
-            ],
-        ],
     ]);
 });
 

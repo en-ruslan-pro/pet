@@ -58,7 +58,7 @@ class PetModel extends Model
     }
 
     /**
-     * @return array<string, array{steps: list<array{key: string, durationSeconds: ?int, clips: list<array{name: string, weight: int, playbackRate: float, isLooping: bool}>}>}>
+     * @return array<string, array{steps: list<array{key: string, durationSeconds: ?int, clips: list<array{name: string, weight: int, playbackRate: float, isLooping: bool}>}>, settings: array<string, mixed>}>
      */
     public function animationConfiguration(): array
     {
@@ -108,7 +108,15 @@ class PetModel extends Model
             }
 
             if ($steps !== []) {
-                $configuration[$action->petAction->key] = ['steps' => $steps];
+                $configuration[$action->petAction->key] = [
+                    'steps' => $steps,
+                    'settings' => [
+                        ...($action->petAction->configuration ?? []),
+                        ...($action->execution_configuration ?? []),
+                        'name' => $action->petAction->name,
+                        'targetRoomItemKey' => $action->interaction_points['room_item_key'] ?? null,
+                    ],
+                ];
             }
         }
 

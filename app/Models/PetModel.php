@@ -108,13 +108,17 @@ class PetModel extends Model
             }
 
             if ($steps !== []) {
+                $actionConfiguration = $action->petAction->getAttribute('configuration');
+                $executionConfiguration = $action->getAttribute('execution_configuration');
+                $interactionPoints = $action->getAttribute('interaction_points');
+
                 $configuration[$action->petAction->key] = [
                     'steps' => $steps,
                     'settings' => [
-                        ...($action->petAction->configuration ?? []),
-                        ...($action->execution_configuration ?? []),
+                        ...(is_array($actionConfiguration) ? $actionConfiguration : []),
+                        ...(is_array($executionConfiguration) ? $executionConfiguration : []),
                         'name' => $action->petAction->name,
-                        'targetRoomItemKey' => $action->interaction_points['room_item_key'] ?? null,
+                        'targetRoomItemKey' => is_array($interactionPoints) ? ($interactionPoints['room_item_key'] ?? null) : null,
                     ],
                 ];
             }

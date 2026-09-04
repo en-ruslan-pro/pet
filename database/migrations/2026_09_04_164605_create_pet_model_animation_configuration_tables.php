@@ -30,7 +30,11 @@ return new class extends Migration
 
         Schema::create('pet_model_animation_step_clips', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('pet_model_animation_step_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('pet_model_animation_step_id');
+            $table->foreign('pet_model_animation_step_id', 'pet_model_animation_step_clips_step_fk')
+                ->references('id')
+                ->on('pet_model_animation_steps')
+                ->cascadeOnDelete();
             $table->string('clip_name', 150);
             $table->unsignedSmallInteger('weight')->default(1);
             $table->decimal('playback_rate', 4, 2)->default(1);

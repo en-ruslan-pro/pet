@@ -32,13 +32,13 @@ test('seeds the cat model with its supported action configuration', function () 
     expect($sleep->execution_configuration)->toBe(['duration_seconds' => [9, 13]]);
     expect($sleep->interaction_points)->toBe(['room_item_key' => 'bed']);
     expect($tabby->animationConfiguration()['sleep']['steps'])->toBe([[
-            'key' => 'sleep.loop',
-            'durationSeconds' => null,
-            'clips' => [
-                ['name' => 'Rest', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true],
-                ['name' => 'Sleep', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true],
-            ],
+        'key' => 'sleep.loop',
+        'durationSeconds' => null,
+        'clips' => [
+            ['name' => 'Rest', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true],
+            ['name' => 'Sleep', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true],
         ],
+    ],
     ]);
     expect($character->default_name)->toBe('Мурка');
     expect($character->petModel->is($tabby))->toBeTrue();
@@ -67,16 +67,16 @@ test('builds an ordered model action configuration from active animation steps',
     PetModelActionStep::factory()->for($modelAction)->for($start, 'animationStep')->create(['position' => 1]);
 
     expect($model->animationConfiguration()['sleep']['steps'])->toBe([
-                [
-                    'key' => 'sleep.start',
-                    'durationSeconds' => null,
-                    'clips' => [['name' => 'Lie_Down', 'weight' => 2, 'playbackRate' => 0.75, 'isLooping' => false]],
-                ],
-                [
-                    'key' => 'sleep.loop',
-                    'durationSeconds' => 8,
-                    'clips' => [['name' => 'Lie_Idle', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true]],
-                ],
+        [
+            'key' => 'sleep.start',
+            'durationSeconds' => null,
+            'clips' => [['name' => 'Lie_Down', 'weight' => 2, 'playbackRate' => 0.75, 'isLooping' => false]],
+        ],
+        [
+            'key' => 'sleep.loop',
+            'durationSeconds' => 8,
+            'clips' => [['name' => 'Lie_Idle', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => true]],
+        ],
     ]);
 });
 
@@ -91,6 +91,25 @@ test('excludes inactive model steps from an action configuration', function () {
     PetModelActionStep::factory()->for($modelAction)->for($step, 'animationStep')->create(['position' => 1]);
 
     expect($model->animationConfiguration())->toBe([]);
+});
+
+test('ignores invalid scalar action settings in an animation configuration', function () {
+    $model = PetModel::factory()->create();
+    $action = PetAction::factory()->create(['key' => 'sleep', 'configuration' => 'invalid']);
+    $modelAction = PetModelAction::factory()->for($model)->for($action)->create([
+        'execution_configuration' => 'invalid',
+        'interaction_points' => 'invalid',
+    ]);
+    $step = PetAnimationStep::factory()->create(['key' => 'sleep.loop']);
+    $modelStep = PetModelAnimationStep::factory()->for($model)->for($step, 'animationStep')->create();
+
+    PetModelAnimationStepClip::factory()->for($modelStep, 'modelStep')->create(['clip_name' => 'Sleep']);
+    PetModelActionStep::factory()->for($modelAction)->for($step, 'animationStep')->create(['position' => 1]);
+
+    expect($model->animationConfiguration()['sleep']['settings'])->toBe([
+        'name' => $action->name,
+        'targetRoomItemKey' => null,
+    ]);
 });
 
 test('seeds KayKit adventurers with configured game action sequences', function () {

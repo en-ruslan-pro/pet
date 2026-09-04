@@ -13,6 +13,12 @@ test('renders the virtual pet demo', function () {
         ->assertDontSee('Virtual Pet TV · Demo')
         ->assertDontSee('Мурка дома')
         ->assertDontSee('id="pet-action"', false)
+        ->assertSee('id="pet-name"', false)
+        ->assertSee('Потребности питомца')
+        ->assertSee('data-pet-need="satiety"', false)
+        ->assertSee('Satiety')
+        ->assertSee('data-pet-need="energy"', false)
+        ->assertSee('data-pet-need="happiness"', false)
         ->assertSee('Освещение')
         ->assertSee('Анимация')
         ->assertSee('Персонаж')
@@ -43,6 +49,7 @@ test('renders selectable characters for the demo scene', function () {
         ->assertSee('id="demo-character"', false)
         ->assertSee($character->name)
         ->assertSee('data-character', false)
+        ->assertSee('"name":"\\u041c\\u0430\\u0433"', false)
         ->assertSee('animationConfiguration');
 });
 
@@ -67,6 +74,47 @@ test('initializes the scene when the debug-only action status is absent', functi
         ->toContain('if (actionLabel !== null) {')
         ->toContain('updateActionLabel(actionDefinition.settings?.name ?? nextAction);')
         ->not->toContain('container === null || actionLabel === null');
+});
+
+test('prefers walking at high energy and sleep at low energy', function () {
+    $process = new Process([
+        'node',
+        '--input-type=module',
+        '--eval',
+        'import { chooseAutonomousAction } from "./resources/js/pet-brain.js"; const actions = { walk: { settings: { autonomous_weight: 1 } }, sleep: { settings: { autonomous_weight: 1 } } }; const moodActions = { idle: { settings: { autonomous_weight: 1 } }, play: { settings: { autonomous_weight: 1 } }, scratch: { settings: { autonomous_weight: 1 } } }; const recoveryActions = { sleep: { settings: { autonomous_weight: 1 } }, idle: { settings: { autonomous_weight: 1 } } }; console.log(JSON.stringify({ rested: chooseAutonomousAction(actions, { satiety: 80, energy: 80, happiness: 80 }, "idle", () => 0.5), tired: chooseAutonomousAction(actions, { satiety: 80, energy: 20, happiness: 80 }, "idle", () => 0.5), content: chooseAutonomousAction(moodActions, { satiety: 80, energy: 80, happiness: 80 }, "walk", () => 0.5), unhappy: chooseAutonomousAction(moodActions, { satiety: 80, energy: 80, happiness: 30 }, "walk", () => 0.5), afterSleep: chooseAutonomousAction(recoveryActions, { satiety: 80, energy: 20, happiness: 80 }, "sleep", () => 0), onlySleep: chooseAutonomousAction({ sleep: { settings: { autonomous_weight: 1 } } }, { satiety: 80, energy: 20, happiness: 80 }, "sleep", () => 0) }));',
+    ], base_path());
+
+    $process->mustRun();
+
+    expect(json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR))
+        ->toBe(['rested' => 'walk', 'tired' => 'sleep', 'content' => 'idle', 'unhappy' => 'play', 'afterSleep' => 'idle', 'onlySleep' => 'sleep']);
+});
+
+test('renders satiety in the browser locale', function (?string $language, string $label) {
+    $request = $language === null ? $this : $this->withHeader('Accept-Language', $language);
+
+    $request->get(route('demo'))->assertSee($label);
+})->with([
+    'Ukrainian browser' => ['uk-UA', 'Ситість'],
+    'English browser' => ['en-US', 'Satiety'],
+    'unsupported browser language' => ['pl-PL', 'Satiety'],
+    'missing browser language' => [null, 'Satiety'],
+]);
+
+test('continues an action when its configured room target is unavailable', function () {
+    $scene = file_get_contents(resource_path('js/demo.js'));
+
+    expect($scene)
+        ->toContain('if (target === undefined) {')
+        ->toContain('setAction(action, animationClips);');
+});
+
+test('applies the walking effect before starting a queued room action', function () {
+    $scene = file_get_contents(resource_path('js/demo.js'));
+
+    expect($scene)
+        ->toContain("currentAction === 'walk' && queuedAction !== undefined")
+        ->toContain('petBrain.completeAction(currentAction);');
 });
 
 test('renders the project information and model license', function () {

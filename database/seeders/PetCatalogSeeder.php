@@ -24,7 +24,7 @@ class PetCatalogSeeder extends Seeder
             [
                 'name' => 'Кошка',
                 'needs_configuration' => [
-                    'hunger' => ['minimum' => 0, 'maximum' => 100],
+                    'satiety' => ['minimum' => 0, 'maximum' => 100],
                     'energy' => ['minimum' => 0, 'maximum' => 100],
                     'happiness' => ['minimum' => 0, 'maximum' => 100],
                 ],
@@ -93,7 +93,7 @@ class PetCatalogSeeder extends Seeder
             [
                 'name' => 'Приключенец',
                 'needs_configuration' => [
-                    'hunger' => ['minimum' => 0, 'maximum' => 100],
+                    'satiety' => ['minimum' => 0, 'maximum' => 100],
                     'energy' => ['minimum' => 0, 'maximum' => 100],
                     'happiness' => ['minimum' => 0, 'maximum' => 100],
                 ],
@@ -203,11 +203,16 @@ class PetCatalogSeeder extends Seeder
     private function actionSettings(string $key): array
     {
         return match ($key) {
-            'eat' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['hunger' => -30, 'energy' => 0, 'happiness' => 5]],
-            'sleep' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['hunger' => 5, 'energy' => 35, 'happiness' => 0]],
-            'play' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['hunger' => 5, 'energy' => -15, 'happiness' => 20]],
-            'scratch' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['hunger' => 0, 'energy' => 0, 'happiness' => 6]],
-            default => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['hunger' => 0, 'energy' => 0, 'happiness' => 0]],
+            'idle' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => -4]],
+            'walk' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -3, 'energy' => -5, 'happiness' => 0]],
+            'sit' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => 2, 'happiness' => -3]],
+            'eat' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 8, 'energy' => 0, 'happiness' => 0]],
+            'sleep' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -3, 'energy' => 8, 'happiness' => -4]],
+            'play' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['satiety' => -4, 'energy' => -6, 'happiness' => 8]],
+            'look_window' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => 1]],
+            'scratch' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['satiety' => -1, 'energy' => -2, 'happiness' => 2]],
+            'meow' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => 0]],
+            default => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 0, 'energy' => 0, 'happiness' => 0]],
         };
     }
 }

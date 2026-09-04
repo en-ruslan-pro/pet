@@ -57,6 +57,75 @@
                 box-shadow: 0 0 1rem #dd9a45;
             }
 
+            .pet-status {
+                position: fixed;
+                top: clamp(1.25rem, 3vw, 3rem);
+                left: 50%;
+                z-index: 1;
+                display: grid;
+                grid-template-columns: auto repeat(3, minmax(7.5rem, 10rem));
+                align-items: center;
+                gap: clamp(0.75rem, 2vw, 1.5rem);
+                width: min(52rem, calc(100vw - 2.5rem));
+                padding: 0.7rem 1rem;
+                border: 1px solid rgb(255 255 255 / 16%);
+                border-radius: 0.75rem;
+                background: rgb(24 20 16 / 74%);
+                backdrop-filter: blur(0.75rem);
+                transform: translateX(-50%);
+            }
+
+            .pet-status__name,
+            .pet-status__label,
+            .pet-status__value {
+                margin: 0;
+                color: rgb(255 255 255 / 82%);
+                font-size: 0.7rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+
+            .pet-status__name {
+                color: #f6c477;
+                white-space: nowrap;
+            }
+
+            .pet-status__need {
+                display: grid;
+                grid-template-columns: auto 1fr auto;
+                align-items: center;
+                gap: 0.45rem;
+                min-width: 0;
+            }
+
+            .pet-status__meter {
+                height: 0.35rem;
+                overflow: hidden;
+                border-radius: 999px;
+                background: rgb(255 255 255 / 14%);
+            }
+
+            .pet-status__meter > span {
+                display: block;
+                width: 0;
+                height: 100%;
+                border-radius: inherit;
+                background: #dd9a45;
+                transition: width 300ms ease;
+            }
+
+            @media (max-width: 52rem) {
+                .pet-status {
+                    grid-template-columns: repeat(3, 1fr);
+                }
+
+                .pet-status__name {
+                    grid-column: 1 / -1;
+                    text-align: center;
+                }
+            }
+
             .demo-controls {
                 position: fixed;
                 top: clamp(1.25rem, 3vw, 3rem);
@@ -179,6 +248,17 @@
     <body>
         <main id="pet-demo" aria-label="Virtual Pet TV: Мурка живёт в своей комнате"></main>
 
+        <section class="pet-status" aria-label="Потребности питомца">
+            <p id="pet-name" class="pet-status__name">Питомец</p>
+            @foreach (['satiety' => __('pet.needs.satiety'), 'energy' => 'Энергия', 'happiness' => 'Настроение'] as $need => $label)
+                <div class="pet-status__need">
+                    <span class="pet-status__label">{{ $label }}</span>
+                    <span class="pet-status__meter" role="progressbar" aria-label="{{ $label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-pet-need="{{ $need }}"><span></span></span>
+                    <output class="pet-status__value" data-pet-need-value="{{ $need }}">0</output>
+                </div>
+            @endforeach
+        </section>
+
         @if (request()->has('debug'))
             <div class="demo-status" aria-live="polite">
                 <span class="demo-status__dot"></span>
@@ -201,7 +281,7 @@
                 <label for="demo-character" class="demo-controls__title">Персонаж</label>
                 <select id="demo-character" @disabled($characters->isEmpty())>
                     @forelse ($characters as $character)
-                        @php($sceneCharacter = ['assetPath' => $character->petModel->asset_path, 'animationConfiguration' => $character->petModel->animationConfiguration()])
+                        @php($sceneCharacter = ['assetPath' => $character->petModel->asset_path, 'name' => $character->name, 'animationConfiguration' => $character->petModel->animationConfiguration()])
                         <option value="{{ $character->id }}" data-character='@json($sceneCharacter)'>{{ $character->name }}</option>
                     @empty
                         <option value="">Персонажи не найдены</option>

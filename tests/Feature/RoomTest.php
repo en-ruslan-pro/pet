@@ -138,7 +138,7 @@ test('sends the meow command to the private room channel', function () {
     });
 });
 
-test('updates pet needs and sends the selected care action to the private room channel', function (string $action, array $needs) {
+test('updates pet needs and sends the selected care action to the private room channel', function (string $action, array $needs, array $databaseNeeds) {
     Event::fake([RoomCommandRequested::class]);
     $room = Room::factory()->create([
         'code' => 'CARE01',
@@ -157,13 +157,13 @@ test('updates pet needs and sends the selected care action to the private room c
 
     $this->assertDatabaseHas('rooms', [
         'id' => $room->id,
-        ...$needs,
+        ...$databaseNeeds,
     ]);
     Event::assertDispatched(RoomCommandRequested::class, fn (RoomCommandRequested $event): bool => $event->room->is($room) && $event->action === $action);
 })->with([
-    'feeding' => ['feed', ['hunger' => 35, 'energy' => 70, 'happiness' => 65]],
-    'playing' => ['play', ['hunger' => 70, 'energy' => 55, 'happiness' => 80]],
-    'sleeping' => ['sleep', ['hunger' => 70, 'energy' => 100, 'happiness' => 60]],
+    'feeding' => ['feed', ['satiety' => 43, 'energy' => 70, 'happiness' => 60], ['hunger' => 57, 'energy' => 70, 'happiness' => 60]],
+    'playing' => ['play', ['satiety' => 31, 'energy' => 64, 'happiness' => 68], ['hunger' => 69, 'energy' => 64, 'happiness' => 68]],
+    'sleeping' => ['sleep', ['satiety' => 32, 'energy' => 78, 'happiness' => 56], ['hunger' => 68, 'energy' => 78, 'happiness' => 56]],
 ]);
 
 test('refreshes pet needs as time passes', function () {

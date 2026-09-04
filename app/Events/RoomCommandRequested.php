@@ -36,7 +36,7 @@ class RoomCommandRequested implements ShouldBroadcastNow
         return 'room.command.requested';
     }
 
-    /** @return array{action: string, petName: string, needs: array{hunger: int, energy: int, happiness: int}} */
+    /** @return array{action: string, petName: string, needs: array{satiety: int, energy: int, happiness: int}} */
     public function broadcastWith(): array
     {
         return [

@@ -23,7 +23,7 @@ class PetFactory extends Factory
             'room_id' => Room::factory(),
             'pet_model_id' => PetModel::factory(),
             'name' => fake()->firstName(),
-            'needs' => ['hunger' => 20, 'energy' => 80, 'happiness' => 80],
+            'needs' => ['satiety' => 80, 'energy' => 80, 'happiness' => 80],
             'attributes' => ['personality' => []],
         ];
     }

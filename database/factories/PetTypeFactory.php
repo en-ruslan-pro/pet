@@ -21,7 +21,7 @@ class PetTypeFactory extends Factory
             'key' => fake()->unique()->slug(2),
             'name' => fake()->words(2, true),
             'needs_configuration' => [
-                'hunger' => ['minimum' => 0, 'maximum' => 100],
+                'satiety' => ['minimum' => 0, 'maximum' => 100],
             ],
         ];
     }

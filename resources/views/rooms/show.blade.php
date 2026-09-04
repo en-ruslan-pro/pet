@@ -24,10 +24,10 @@
                 </div>
 
                 <section class="grid gap-3" aria-label="Состояние питомца">
-                    @foreach (['hunger' => 'Голод', 'energy' => 'Энергия', 'happiness' => 'Настроение'] as $need => $label)
+                    @foreach (['satiety' => __('pet.needs.satiety'), 'energy' => 'Энергия', 'happiness' => 'Настроение'] as $need => $label)
                         <div>
-                            <div class="mb-1 flex justify-between text-sm text-stone-300"><span>{{ $label }}</span><span data-need-value="{{ $need }}">{{ $room->{$need} }}</span></div>
-                            <div class="h-2 overflow-hidden rounded-full bg-stone-950"><div class="h-full rounded-full {{ $need === 'hunger' ? 'bg-amber-400' : 'bg-emerald-400' }}" data-need-bar="{{ $need }}" style="width: {{ $room->{$need} }}%"></div></div>
+                            <div class="mb-1 flex justify-between text-sm text-stone-300"><span>{{ $label }}</span><span data-need-value="{{ $need }}">{{ $room->petNeeds()[$need] }}</span></div>
+                            <div class="h-2 overflow-hidden rounded-full bg-stone-950"><div class="h-full rounded-full bg-emerald-400" data-need-bar="{{ $need }}" style="width: {{ $room->petNeeds()[$need] }}%"></div></div>
                         </div>
                     @endforeach
                 </section>

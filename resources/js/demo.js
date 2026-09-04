@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { chooseAutonomousAction } from './pet-brain';
 import { findWalkablePath, getBoundaryTurnTarget, ROOM_LAYOUT, simplifyWalkPath, smoothAngle } from './room-layout';
 
 const container = document.querySelector('#pet-demo');
@@ -26,6 +27,9 @@ const hemisphereLightStrengthControl = document.querySelector('#demo-hemisphere-
 const hemisphereLightStrengthValue = document.querySelector('#demo-hemisphere-light-strength-value');
 const characterControl = document.querySelector('#demo-character');
 const animationControl = document.querySelector('#demo-animation');
+const petName = document.querySelector('#pet-name');
+const petNeedMeters = Object.fromEntries(['satiety', 'energy', 'happiness'].map((need) => [need, document.querySelector(`[data-pet-need="${need}"]`)]));
+const petNeedValues = Object.fromEntries(['satiety', 'energy', 'happiness'].map((need) => [need, document.querySelector(`[data-pet-need-value="${need}"]`)]));
 const sceneParameters = new URLSearchParams(window.location.search);
 const isTvMode = sceneParameters.has('tv');
 const initialCharacter = (() => {
@@ -53,6 +57,29 @@ if (container === null || lightingControl === null || lightingValue === null || 
 if (!window.WebGLRenderingContext) {
     container.innerHTML = '<div class="demo-error">Для запуска демонстрации нужен браузер с поддержкой WebGL.</div>';
 } else {
+    const updatePetStatus = (needs) => {
+        Object.entries(needs).forEach(([need, value]) => {
+            const meter = petNeedMeters[need];
+            const valueLabel = petNeedValues[need];
+            const roundedValue = Math.round(value);
+
+            if (meter !== null) {
+                meter.setAttribute('aria-valuenow', String(roundedValue));
+                meter.firstElementChild.style.width = `${roundedValue}%`;
+            }
+
+            if (valueLabel !== null) {
+                valueLabel.value = String(roundedValue);
+            }
+        });
+    };
+
+    const updatePetName = (name) => {
+        if (petName !== null) {
+            petName.textContent = name ?? 'Питомец';
+        }
+    };
+
     const updateActionLabel = (label) => {
         if (actionLabel !== null) {
             actionLabel.textContent = label;
@@ -349,45 +376,30 @@ if (!window.WebGLRenderingContext) {
 
     class PetBrain {
         constructor(needs = {}) {
-            this.needs = { hunger: 20, energy: 80, happiness: 80 };
+            this.needs = { satiety: 80, energy: 80, happiness: 80 };
             this.lastAction = 'idle';
             this.setNeeds(needs);
         }
 
         setNeeds(needs) {
-            ['hunger', 'energy', 'happiness'].forEach((need) => {
+            ['satiety', 'energy', 'happiness'].forEach((need) => {
                 if (Number.isFinite(needs[need])) {
                     this.needs[need] = THREE.MathUtils.clamp(needs[need], 0, 100);
                 }
             });
+
+            updatePetStatus(this.needs);
         }
 
         advance(delta) {
-            this.needs.hunger = Math.min(100, this.needs.hunger + delta / 300);
+            this.needs.satiety = Math.max(0, this.needs.satiety - delta / 300);
             this.needs.energy = Math.max(0, this.needs.energy - delta / 600);
             this.needs.happiness = Math.max(0, this.needs.happiness - delta / 900);
+            updatePetStatus(this.needs);
         }
 
         chooseAction(actions) {
-            const candidates = Object.entries(actions)
-                .filter(([, definition]) => definition.settings?.is_autonomous !== false)
-                .map(([action, definition]) => [action, (definition.settings?.autonomous_weight ?? 1) * (action === this.lastAction ? 0.35 : 1)]);
-
-            if (candidates.length === 0) {
-                return undefined;
-            }
-            const totalWeight = candidates.reduce((total, [, weight]) => total + weight, 0);
-            let cursor = Math.random() * totalWeight;
-
-            for (const [action, weight] of candidates) {
-                cursor -= weight;
-
-                if (cursor <= 0) {
-                    return action;
-                }
-            }
-
-            return candidates[0][0];
+            return chooseAutonomousAction(actions, this.needs, this.lastAction);
         }
 
         completeAction(action) {
@@ -398,6 +410,7 @@ if (!window.WebGLRenderingContext) {
                     this.needs[need] = THREE.MathUtils.clamp(this.needs[need] + effect, 0, 100);
                 }
             });
+            updatePetStatus(this.needs);
         }
     }
 
@@ -518,6 +531,13 @@ if (!window.WebGLRenderingContext) {
 
         queuedAction = action;
         const target = interestPoints[point];
+
+        if (target === undefined) {
+            setAction(action, animationClips);
+
+            return;
+        }
+
         const distance = cat.position.distanceTo(target);
         setAction('walk', animationClips, { target, duration: Math.max(2.5, distance / 1.15) });
     };
@@ -582,7 +602,7 @@ if (!window.WebGLRenderingContext) {
         const character = selectedCharacter();
 
         if (character !== null) {
-            loadCharacter(character.assetPath, character.animationConfiguration);
+            loadCharacter(character.assetPath, character.animationConfiguration, character.name);
         }
     });
 
@@ -604,7 +624,7 @@ if (!window.WebGLRenderingContext) {
         }
 
         if (event.data?.action === 'sync-character' && event.data.character?.assetPath) {
-            loadCharacter(event.data.character.assetPath, event.data.character.animationConfiguration);
+            loadCharacter(event.data.character.assetPath, event.data.character.animationConfiguration, event.data.character.name);
 
             return;
         }
@@ -612,8 +632,10 @@ if (!window.WebGLRenderingContext) {
         performRemoteAction(event.data?.action, event.data?.needs);
     });
 
-    const loadCharacter = (assetPath, nextAnimationConfiguration = {}) => {
+    const loadCharacter = (assetPath, nextAnimationConfiguration = {}, name = undefined) => {
         const characterSignature = JSON.stringify([assetPath, nextAnimationConfiguration]);
+
+        updatePetName(name);
 
         if (requestedCharacterSignature === characterSignature) {
             return;
@@ -676,6 +698,7 @@ if (!window.WebGLRenderingContext) {
     loadCharacter(
         initialCharacter?.assetPath ?? defaultCharacter?.assetPath ?? '/models/stripe-the-cat.glb',
         initialCharacter?.animationConfiguration ?? defaultCharacter?.animationConfiguration ?? {},
+        initialCharacter?.name ?? defaultCharacter?.name,
     );
 
     const timer = new THREE.Timer();
@@ -714,6 +737,7 @@ if (!window.WebGLRenderingContext) {
             if (selectedAnimation === undefined && actionElapsed >= actionDuration && currentAction === 'walk' && queuedAction !== undefined) {
                 const nextAction = queuedAction;
                 queuedAction = undefined;
+                petBrain.completeAction(currentAction);
                 setAction(nextAction, cat.userData.animationClips);
             } else if (selectedAnimation === undefined && actionElapsed >= actionDuration) {
                 if (!advanceActionSequence()) {

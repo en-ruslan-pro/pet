@@ -54,11 +54,11 @@ class Room extends Model
         ]);
     }
 
-    /** @return array{hunger: int, energy: int, happiness: int} */
+    /** @return array{satiety: int, energy: int, happiness: int} */
     public function petNeeds(): array
     {
         return [
-            'hunger' => $this->hunger,
+            'satiety' => 100 - $this->hunger,
             'energy' => $this->energy,
             'happiness' => $this->happiness,
         ];
@@ -105,7 +105,9 @@ class Room extends Model
             }
 
             $this->forceFill([
-                ...$changes,
+                'hunger' => 100 - $changes['satiety'],
+                'energy' => $changes['energy'],
+                'happiness' => $changes['happiness'],
                 'pet_needs_updated_at' => now(),
             ])->save();
 
@@ -113,14 +115,16 @@ class Room extends Model
         }
 
         $changes = match ($action) {
-            'feed' => ['hunger' => max(0, $this->hunger - 30), 'happiness' => min(100, $this->happiness + 5)],
-            'play' => ['hunger' => min(100, $this->hunger + 5), 'energy' => max(0, $this->energy - 15), 'happiness' => min(100, $this->happiness + 20)],
-            'sleep' => ['hunger' => min(100, $this->hunger + 5), 'energy' => min(100, $this->energy + 35)],
+            'feed' => ['satiety' => min(100, $this->petNeeds()['satiety'] + 8)],
+            'play' => ['satiety' => max(0, $this->petNeeds()['satiety'] - 4), 'energy' => max(0, $this->energy - 6), 'happiness' => min(100, $this->happiness + 8)],
+            'sleep' => ['satiety' => max(0, $this->petNeeds()['satiety'] - 3), 'energy' => min(100, $this->energy + 8), 'happiness' => max(0, $this->happiness - 4)],
             default => throw new \InvalidArgumentException("Unsupported pet action: {$action}"),
         };
 
         $this->forceFill([
-            ...$changes,
+            'hunger' => 100 - ($changes['satiety'] ?? $this->petNeeds()['satiety']),
+            'energy' => $changes['energy'] ?? $this->energy,
+            'happiness' => $changes['happiness'] ?? $this->happiness,
             'pet_needs_updated_at' => now(),
         ])->save();
 

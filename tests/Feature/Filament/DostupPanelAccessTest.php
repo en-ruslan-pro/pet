@@ -44,10 +44,26 @@ test('shows animation steps and game action configuration for a pet model', func
 });
 
 test('renders pet model form sections one below another', function () {
-    $sectionSpans = collect(PetModelForm::configure(Schema::make())->getComponents())
+    $sections = collect(PetModelForm::configure(Schema::make())->getComponents());
+    $sectionSpans = $sections
         ->mapWithKeys(fn ($component) => [$component->getHeading() => $component->getColumnSpan()]);
+    $animationSteps = $sections
+        ->first(fn ($component) => $component->getHeading() === 'Внутренние шаги и варианты клипов')
+        ->getDefaultChildComponents();
+    $animationStepComponents = collect($animationSteps)
+        ->first(fn ($component) => $component->getName() === 'animationSteps')
+        ->getDefaultChildComponents();
+    $clipsRepeater = collect($animationStepComponents)
+        ->first(fn ($component) => $component->getName() === 'clips');
+    $gameActions = $sections->first(fn ($component) => $component->getHeading() === 'Игровые действия');
+    $steps = collect($gameActions->getDefaultChildComponents())
+        ->first(fn ($component) => $component->getName() === 'petModelActions')
+        ->getDefaultChildComponents();
+    $stepsRepeater = collect($steps)->first(fn ($component) => $component->getName() === 'steps');
 
     expect($sectionSpans['Модель'])->toBe(['default' => 'full']);
     expect($sectionSpans['Внутренние шаги и варианты клипов'])->toBe(['default' => 'full']);
     expect($sectionSpans['Игровые действия'])->toBe(['default' => 'full']);
+    expect($clipsRepeater->getColumnSpan())->toBe(['default' => 'full']);
+    expect($stepsRepeater->getColumnSpan())->toBe(['default' => 'full']);
 });

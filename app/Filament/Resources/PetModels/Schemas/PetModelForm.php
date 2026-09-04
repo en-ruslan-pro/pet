@@ -79,6 +79,7 @@ class PetModelForm
                                             ->label('Зациклить'),
                                     ])
                                     ->columns(4)
+                                    ->columnSpanFull()
                                     ->addActionLabel('Добавить вариант клипа')
                                     ->defaultItems(0),
                             ])
@@ -134,6 +135,7 @@ class PetModelForm
                                             ->nullable(),
                                     ])
                                     ->columns(3)
+                                    ->columnSpanFull()
                                     ->addActionLabel('Добавить шаг')
                                     ->defaultItems(0),
                             ])

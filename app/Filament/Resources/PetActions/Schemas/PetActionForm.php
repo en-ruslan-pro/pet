@@ -46,8 +46,8 @@ class PetActionForm
                     ->columns(3),
                 Section::make('Изменение потребностей после действия')
                     ->schema([
-                        TextInput::make('configuration.need_effects.hunger')
-                            ->label('Голод')
+                        TextInput::make('configuration.need_effects.satiety')
+                            ->label(__('pet.needs.satiety'))
                             ->numeric()
                             ->default(0),
                         TextInput::make('configuration.need_effects.energy')

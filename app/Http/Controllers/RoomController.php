@@ -70,6 +70,7 @@ class RoomController extends Controller
             'room' => $room,
             'character' => $room->character === null ? null : [
                 'assetPath' => $room->character->petModel->asset_path,
+                'name' => $room->pet_name,
                 'animationConfiguration' => $room->character->petModel->animationConfiguration(),
             ],
             'reverb' => [

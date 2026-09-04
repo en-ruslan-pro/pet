@@ -46,13 +46,19 @@ const initialCharacter = (() => {
     }
 })();
 
-if (container === null || actionLabel === null || lightingControl === null || lightingValue === null || cameraPositionValue === null || lightPositionValue === null || lightDistanceControl === null || lightDistanceValue === null || lightStrengthControl === null || lightStrengthValue === null || plantLightDistanceControl === null || plantLightDistanceValue === null || plantLightStrengthControl === null || plantLightStrengthValue === null || cameraLightDistanceControl === null || cameraLightDistanceValue === null || cameraLightStrengthControl === null || cameraLightStrengthValue === null || hemisphereLightStrengthControl === null || hemisphereLightStrengthValue === null || characterControl === null || animationControl === null) {
+if (container === null || lightingControl === null || lightingValue === null || cameraPositionValue === null || lightPositionValue === null || lightDistanceControl === null || lightDistanceValue === null || lightStrengthControl === null || lightStrengthValue === null || plantLightDistanceControl === null || plantLightDistanceValue === null || plantLightStrengthControl === null || plantLightStrengthValue === null || cameraLightDistanceControl === null || cameraLightDistanceValue === null || cameraLightStrengthControl === null || cameraLightStrengthValue === null || hemisphereLightStrengthControl === null || hemisphereLightStrengthValue === null || characterControl === null || animationControl === null) {
     throw new Error('The Virtual Pet TV demo container is missing.');
 }
 
 if (!window.WebGLRenderingContext) {
     container.innerHTML = '<div class="demo-error">Для запуска демонстрации нужен браузер с поддержкой WebGL.</div>';
 } else {
+    const updateActionLabel = (label) => {
+        if (actionLabel !== null) {
+            actionLabel.textContent = label;
+        }
+    };
+
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#211f1b');
     scene.fog = new THREE.Fog('#211f1b', 10, 24);
@@ -449,7 +455,7 @@ if (!window.WebGLRenderingContext) {
         const actionDefinition = animationConfiguration[nextAction] ?? {};
         const duration = actionDefinition.settings?.duration_seconds ?? [5, 10];
         actionDuration = options.duration ?? randomDuration(duration);
-        actionLabel.textContent = actionDefinition.settings?.name ?? nextAction;
+        updateActionLabel(actionDefinition.settings?.name ?? nextAction);
 
         actionSequence = animationConfiguration[nextAction]?.steps ?? [];
         actionSequenceIndex = 0;
@@ -551,7 +557,7 @@ if (!window.WebGLRenderingContext) {
 
         selectedAnimation = animationClips[selectedIndex];
         playAnimation(selectedAnimation);
-        actionLabel.textContent = `Анимация: ${selectedAnimation.name}`;
+        updateActionLabel(`Анимация: ${selectedAnimation.name}`);
     });
 
     const selectedCharacter = () => {
@@ -586,7 +592,7 @@ if (!window.WebGLRenderingContext) {
         }
 
         if (event.data?.action === 'meow') {
-            actionLabel.textContent = `${event.data.petName ?? 'Мурка'} мяукает`;
+            updateActionLabel(`${event.data.petName ?? 'Мурка'} мяукает`);
 
             return;
         }
@@ -660,7 +666,7 @@ if (!window.WebGLRenderingContext) {
         },
         undefined,
         () => {
-            actionLabel.textContent = 'Не удалось загрузить модель';
+            updateActionLabel('Не удалось загрузить модель');
         },
         );
     };

@@ -38,7 +38,8 @@ class PetModelForm
                             ->maxLength(255)
                             ->helperText('Например: /models/kaykit-adventurers/Knight.glb'),
                     ])
-                    ->columns(2),
+                    ->columns(2)
+                    ->columnSpanFull(),
                 Section::make('Внутренние шаги и варианты клипов')
                     ->description('Один шаг модели может использовать несколько точных имён клипов GLB. Вес определяет вероятность выбора варианта.')
                     ->schema([
@@ -84,7 +85,8 @@ class PetModelForm
                             ->columns(2)
                             ->addActionLabel('Добавить внутренний шаг')
                             ->defaultItems(0),
-                    ]),
+                    ])
+                    ->columnSpanFull(),
                 Section::make('Игровые действия')
                     ->description('Действие выполняет активные внутренние шаги сверху вниз. Перетащите шаги в нужный порядок.')
                     ->schema([
@@ -138,7 +140,8 @@ class PetModelForm
                             ->columns(2)
                             ->addActionLabel('Добавить игровое действие')
                             ->defaultItems(0),
-                    ]),
+                    ])
+                    ->columnSpanFull(),
             ]);
     }
 }

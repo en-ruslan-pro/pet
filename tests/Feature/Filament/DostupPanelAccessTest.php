@@ -1,6 +1,8 @@
 <?php
 
+use App\Filament\Resources\PetModels\Schemas\PetModelForm;
 use App\Models\User;
+use Filament\Schemas\Schema;
 use Spatie\Permission\Models\Role;
 
 test('forbids users without the admin role from accessing the Filament panel', function () {
@@ -39,4 +41,13 @@ test('shows animation steps and game action configuration for a pet model', func
         ->get('/dostup/pet-models/create')
         ->assertSee('Внутренние шаги и варианты клипов')
         ->assertSee('Игровые действия');
+});
+
+test('renders pet model form sections one below another', function () {
+    $sectionSpans = collect(PetModelForm::configure(Schema::make())->getComponents())
+        ->mapWithKeys(fn ($component) => [$component->getHeading() => $component->getColumnSpan()]);
+
+    expect($sectionSpans['Модель'])->toBe(['default' => 'full']);
+    expect($sectionSpans['Внутренние шаги и варианты клипов'])->toBe(['default' => 'full']);
+    expect($sectionSpans['Игровые действия'])->toBe(['default' => 'full']);
 });

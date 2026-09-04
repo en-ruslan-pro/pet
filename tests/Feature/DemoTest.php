@@ -59,6 +59,16 @@ test('shows the pet action status only in debug mode', function () {
         ->assertSee('Просыпается');
 });
 
+test('initializes the scene when the debug-only action status is absent', function () {
+    $scene = file_get_contents(resource_path('js/demo.js'));
+
+    expect($scene)
+        ->toContain('const updateActionLabel = (label) => {')
+        ->toContain('if (actionLabel !== null) {')
+        ->toContain('updateActionLabel(actionDefinition.settings?.name ?? nextAction);')
+        ->not->toContain('container === null || actionLabel === null');
+});
+
 test('renders the project information and model license', function () {
     $this->get(route('about'))
         ->assertSee('О проекте')

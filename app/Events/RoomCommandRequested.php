@@ -17,7 +17,7 @@ class RoomCommandRequested implements ShouldBroadcastNow
     /**
      * Create a new event instance.
      */
-    public function __construct(public readonly Room $room, public readonly string $action) {}
+    public function __construct(public readonly Room $room, public readonly string $action, public readonly ?int $executionId = null) {}
 
     /**
      * Get the channels the event should broadcast on.
@@ -36,11 +36,12 @@ class RoomCommandRequested implements ShouldBroadcastNow
         return 'room.command.requested';
     }
 
-    /** @return array{action: string, petName: string, needs: array{satiety: int, energy: int, happiness: int}} */
+    /** @return array{action: string, executionId: ?int, petName: string, needs: array{satiety: int, energy: int, happiness: int}} */
     public function broadcastWith(): array
     {
         return [
             'action' => $this->action,
+            'executionId' => $this->executionId,
             'petName' => $this->room->pet_name,
             'needs' => $this->room->petNeeds(),
         ];

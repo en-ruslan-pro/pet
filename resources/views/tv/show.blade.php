@@ -13,7 +13,20 @@
     </head>
     <body>
         @php($sceneCharacter = $character === null ? null : strtr(base64_encode(json_encode($character)), '+/', '-_'))
-        <main data-tv-room data-room-code="{{ $room->code }}" data-heartbeat-url="{{ route('tv.heartbeat', $room) }}" data-character='@json($character)' data-pet-needs='@json($room->petNeeds())' data-reverb='@json($reverb)'>
+        <main
+            data-tv-room
+            data-room-code="{{ $room->code }}"
+            data-heartbeat-url="{{ route('tv.heartbeat', $room) }}"
+            data-session-start-url="{{ route('tv.sessions.start', $room) }}"
+            data-session-heartbeat-url="{{ route('tv.sessions.heartbeat', [$room, '__session__']) }}"
+            data-session-end-url="{{ route('tv.sessions.end', [$room, '__session__']) }}"
+            data-autonomous-action-url="{{ route('tv.actions.start', $room) }}"
+            data-action-start-url="{{ route('tv.actions.execution.start', [$room, '__execution__']) }}"
+            data-action-finish-url="{{ route('tv.actions.execution.finish', [$room, '__execution__']) }}"
+            data-character='@json($character)'
+            data-pet-needs='@json($room->petNeeds())'
+            data-reverb='@json($reverb)'
+        >
             <iframe title="{{ $room->pet_name }} дома" src="{{ route('demo', ['tv' => 1, 'debug' => request()->has('debug'), 'character' => $sceneCharacter]) }}"></iframe>
             @if (request()->has('debug'))
                 <p class="tv-room__status" data-tv-room-status>Подключаем {{ $room->pet_name }}</p>

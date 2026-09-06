@@ -4,6 +4,7 @@ use App\Events\RoomCommandRequested;
 use App\Models\Character;
 use App\Models\PetModel;
 use App\Models\Room;
+use Database\Seeders\PetCatalogSeeder;
 use Illuminate\Contracts\Broadcasting\Factory as BroadcastingFactory;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Event;
@@ -138,9 +139,12 @@ test('sends the meow command to the private room channel', function () {
     });
 });
 
-test('updates pet needs and sends the selected care action to the private room channel', function (string $action, array $needs, array $databaseNeeds) {
+test('requests the selected care action without applying its effects before completion', function (string $action, array $needs, array $databaseNeeds) {
     Event::fake([RoomCommandRequested::class]);
+    $this->seed(PetCatalogSeeder::class);
+    $character = Character::query()->where('name', 'Полосатая кошка')->sole();
     $room = Room::factory()->create([
+        'character_id' => $character->id,
         'code' => 'CARE01',
         'hunger' => 65,
         'energy' => 70,
@@ -161,9 +165,9 @@ test('updates pet needs and sends the selected care action to the private room c
     ]);
     Event::assertDispatched(RoomCommandRequested::class, fn (RoomCommandRequested $event): bool => $event->room->is($room) && $event->action === $action);
 })->with([
-    'feeding' => ['feed', ['satiety' => 43, 'energy' => 70, 'happiness' => 60], ['hunger' => 57, 'energy' => 70, 'happiness' => 60]],
-    'playing' => ['play', ['satiety' => 31, 'energy' => 64, 'happiness' => 68], ['hunger' => 69, 'energy' => 64, 'happiness' => 68]],
-    'sleeping' => ['sleep', ['satiety' => 32, 'energy' => 78, 'happiness' => 56], ['hunger' => 68, 'energy' => 78, 'happiness' => 56]],
+    'feeding' => ['feed', ['satiety' => 35, 'energy' => 70, 'happiness' => 60], ['hunger' => 65, 'energy' => 70, 'happiness' => 60]],
+    'playing' => ['play', ['satiety' => 35, 'energy' => 70, 'happiness' => 60], ['hunger' => 65, 'energy' => 70, 'happiness' => 60]],
+    'sleeping' => ['sleep', ['satiety' => 35, 'energy' => 70, 'happiness' => 60], ['hunger' => 65, 'energy' => 70, 'happiness' => 60]],
 ]);
 
 test('refreshes pet needs as time passes', function () {
@@ -201,7 +205,10 @@ test('returns 404 for an unsupported pet care action', function () {
 });
 
 test('does not change pet needs when the realtime command cannot be broadcast', function () {
+    $this->seed(PetCatalogSeeder::class);
+    $character = Character::query()->where('name', 'Полосатая кошка')->sole();
     $room = Room::factory()->create([
+        'character_id' => $character->id,
         'code' => 'FAIL01',
         'hunger' => 65,
         'energy' => 70,

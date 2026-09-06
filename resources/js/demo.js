@@ -380,6 +380,9 @@ if (!window.WebGLRenderingContext) {
     let queuedAction;
     let pendingRemoteAction;
     let requestedCharacterSignature;
+    let actionTelemetryToken = 0;
+    let activeExecutionId;
+    let activeExecutionToken;
 
     class PetBrain {
         constructor(needs = {}) {
@@ -411,13 +414,6 @@ if (!window.WebGLRenderingContext) {
 
         completeAction(action) {
             this.lastAction = action;
-            const effects = animationConfiguration[action]?.settings?.need_effects ?? {};
-            Object.entries(effects).forEach(([need, effect]) => {
-                if (Number.isFinite(effect) && need in this.needs) {
-                    this.needs[need] = THREE.MathUtils.clamp(this.needs[need] + effect, 0, 100);
-                }
-            });
-            updatePetStatus(this.needs);
         }
     }
 
@@ -500,6 +496,26 @@ if (!window.WebGLRenderingContext) {
             walkPathDistance = walkPath.reduce((total, point, index) => total + (index === 0 ? walkStart : walkPath[index - 1]).distanceTo(point), 0);
             actionDuration = Math.max(2.5, walkPathDistance / 1.15);
         }
+
+        activeExecutionId = options.executionId;
+        activeExecutionToken = ++actionTelemetryToken;
+        window.parent.postMessage({
+            type: 'pet-action-start',
+            action: nextAction,
+            executionId: activeExecutionId,
+            token: activeExecutionToken,
+        }, window.location.origin);
+    };
+
+    const finishActionExecution = () => {
+        window.parent.postMessage({
+            type: 'pet-action-finish',
+            executionId: activeExecutionId,
+            token: activeExecutionToken,
+        }, window.location.origin);
+
+        activeExecutionId = undefined;
+        activeExecutionToken = undefined;
     };
 
     const advanceActionSequence = () => {
@@ -523,7 +539,7 @@ if (!window.WebGLRenderingContext) {
         return true;
     };
 
-    const beginBehavior = (action) => {
+    const beginBehavior = (action, options = {}) => {
         if (cat === undefined || mixer === undefined || action === undefined || animationConfiguration[action] === undefined) {
             return;
         }
@@ -531,16 +547,16 @@ if (!window.WebGLRenderingContext) {
         const point = animationConfiguration[action].settings?.targetRoomItemKey?.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 
         if (point === undefined) {
-            setAction(action, animationClips);
+            setAction(action, animationClips, options);
 
             return;
         }
 
-        queuedAction = action;
+        queuedAction = { action, options };
         const target = interestPoints[point];
 
         if (target === undefined) {
-            setAction(action, animationClips);
+            setAction(action, animationClips, options);
 
             return;
         }
@@ -551,7 +567,7 @@ if (!window.WebGLRenderingContext) {
 
     const startAutonomousBehavior = () => beginBehavior(petBrain.chooseAction(animationConfiguration));
 
-    const performRemoteAction = (action, needs) => {
+    const performRemoteAction = (action, needs, executionId) => {
         if (needs !== undefined) {
             petBrain.setNeeds(needs);
         }
@@ -563,13 +579,13 @@ if (!window.WebGLRenderingContext) {
         }
 
         if (cat === undefined || mixer === undefined) {
-            pendingRemoteAction = action;
+            pendingRemoteAction = { action, needs, executionId };
 
             return;
         }
 
         selectedAnimation = undefined;
-        beginBehavior(behavior);
+        beginBehavior(behavior, { executionId });
     };
 
     animationControl.addEventListener('change', () => {
@@ -636,7 +652,13 @@ if (!window.WebGLRenderingContext) {
             return;
         }
 
-        performRemoteAction(event.data?.action, event.data?.needs);
+        if (event.data?.type === 'pet-action-execution' && event.data.token === activeExecutionToken) {
+            activeExecutionId = event.data.executionId;
+
+            return;
+        }
+
+        performRemoteAction(event.data?.action, event.data?.needs, event.data?.executionId);
     });
 
     const loadCharacter = (assetPath, nextAnimationConfiguration = {}, name = undefined) => {
@@ -689,7 +711,7 @@ if (!window.WebGLRenderingContext) {
             setAction('idle', animationClips);
 
             if (pendingRemoteAction !== undefined) {
-                performRemoteAction(pendingRemoteAction);
+                performRemoteAction(pendingRemoteAction.action, pendingRemoteAction.needs, pendingRemoteAction.executionId);
                 pendingRemoteAction = undefined;
             }
         },
@@ -745,10 +767,12 @@ if (!window.WebGLRenderingContext) {
                 const nextAction = queuedAction;
                 queuedAction = undefined;
                 petBrain.completeAction(currentAction);
-                setAction(nextAction, cat.userData.animationClips);
+                finishActionExecution();
+                setAction(nextAction.action, cat.userData.animationClips, nextAction.options);
             } else if (selectedAnimation === undefined && actionElapsed >= actionDuration) {
                 if (!advanceActionSequence()) {
                     petBrain.completeAction(currentAction);
+                    finishActionExecution();
                     startAutonomousBehavior();
                 }
             }

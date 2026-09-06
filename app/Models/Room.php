@@ -19,6 +19,13 @@ class Room extends Model
     /** @use HasFactory<RoomFactory> */
     use HasFactory;
 
+    /** @var array{satiety_per_minutes: int, energy_per_minutes: int, happiness_per_minutes: int} */
+    public const NEED_DECAY = [
+        'satiety_per_minutes' => 5,
+        'energy_per_minutes' => 10,
+        'happiness_per_minutes' => 15,
+    ];
+
     /** @var list<string> */
     protected $fillable = [
         'code',
@@ -78,9 +85,9 @@ class Room extends Model
             return $this;
         }
 
-        $hungerIncrease = intdiv($elapsedWholeMinutes, 5);
-        $energyDecrease = intdiv($elapsedWholeMinutes, 10);
-        $happinessDecrease = intdiv($elapsedWholeMinutes, 15);
+        $hungerIncrease = intdiv($elapsedWholeMinutes, self::NEED_DECAY['satiety_per_minutes']);
+        $energyDecrease = intdiv($elapsedWholeMinutes, self::NEED_DECAY['energy_per_minutes']);
+        $happinessDecrease = intdiv($elapsedWholeMinutes, self::NEED_DECAY['happiness_per_minutes']);
 
         $this->forceFill([
             'hunger' => min(100, $this->hunger + $hungerIncrease),
@@ -98,20 +105,7 @@ class Room extends Model
         $this->refreshPetNeeds();
 
         if ($needEffects !== []) {
-            $changes = [];
-
-            foreach ($this->petNeeds() as $need => $value) {
-                $changes[$need] = (int) max(0, min(100, $value + ($needEffects[$need] ?? 0)));
-            }
-
-            $this->forceFill([
-                'hunger' => 100 - $changes['satiety'],
-                'energy' => $changes['energy'],
-                'happiness' => $changes['happiness'],
-                'pet_needs_updated_at' => now(),
-            ])->save();
-
-            return $this;
+            return $this->applyNeedEffects($needEffects);
         }
 
         $changes = match ($action) {
@@ -125,6 +119,25 @@ class Room extends Model
             'hunger' => 100 - $changes['satiety'],
             'energy' => $changes['energy'] ?? $this->energy,
             'happiness' => $changes['happiness'] ?? $this->happiness,
+            'pet_needs_updated_at' => now(),
+        ])->save();
+
+        return $this;
+    }
+
+    /** @param array<string, int|float> $needEffects */
+    public function applyNeedEffects(array $needEffects): self
+    {
+        $changes = [];
+
+        foreach ($this->petNeeds() as $need => $value) {
+            $changes[$need] = (int) max(0, min(100, $value + ($needEffects[$need] ?? 0)));
+        }
+
+        $this->forceFill([
+            'hunger' => 100 - $changes['satiety'],
+            'energy' => $changes['energy'],
+            'happiness' => $changes['happiness'],
             'pet_needs_updated_at' => now(),
         ])->save();
 

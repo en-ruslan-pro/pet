@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Pages\PetBalance;
 use App\Filament\Resources\PetModels\Schemas\PetModelForm;
 use App\Models\User;
 use Filament\Schemas\Schema;
@@ -41,6 +42,16 @@ test('shows animation steps and game action configuration for a pet model', func
         ->get('/dostup/pet-models/create')
         ->assertSee('Внутренние шаги и варианты клипов')
         ->assertSee('Игровые действия');
+});
+
+test('shows pet balance statistics to administrators', function () {
+    $user = User::factory()->create();
+    $user->assignRole(Role::findOrCreate('admin'));
+
+    $this->actingAs($user)
+        ->get(PetBalance::getUrl())
+        ->assertSee(__('pet.analytics.title'))
+        ->assertSee(__('pet.analytics.actions'));
 });
 
 test('renders pet model form sections one below another', function () {

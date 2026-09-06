@@ -24,6 +24,12 @@ Route::get('tv', [RoomController::class, 'tvEntry'])->name('tv.entry');
 Route::post('tv', [RoomController::class, 'enterTv'])->name('tv.enter');
 Route::get('tv/{room:code}', [RoomController::class, 'showTv'])->name('tv.show');
 Route::post('tv/{room:code}/heartbeat', [RoomController::class, 'heartbeat'])->name('tv.heartbeat');
+Route::post('tv/{room:code}/sessions', [RoomController::class, 'startViewSession'])->middleware('throttle:12,1')->name('tv.sessions.start');
+Route::post('tv/{room:code}/sessions/{session}/heartbeat', [RoomController::class, 'heartbeatViewSession'])->middleware('throttle:30,1')->name('tv.sessions.heartbeat');
+Route::post('tv/{room:code}/sessions/{session}/end', [RoomController::class, 'endViewSession'])->middleware('throttle:12,1')->name('tv.sessions.end');
+Route::post('tv/{room:code}/actions/start', [RoomController::class, 'startAutonomousAction'])->middleware('throttle:30,1')->name('tv.actions.start');
+Route::post('tv/{room:code}/actions/{execution}/start', [RoomController::class, 'startActionExecution'])->middleware('throttle:30,1')->name('tv.actions.execution.start');
+Route::post('tv/{room:code}/actions/{execution}/finish', [RoomController::class, 'finishActionExecution'])->middleware('throttle:30,1')->name('tv.actions.execution.finish');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');

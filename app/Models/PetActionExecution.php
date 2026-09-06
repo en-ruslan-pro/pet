@@ -13,6 +13,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $started_at
  * @property Carbon|null $finished_at
  * @property array<string, mixed>|null $configuration_snapshot
+ * @property array<string, mixed>|null $needs_before
+ * @property array<string, mixed>|null $needs_after
  */
 class PetActionExecution extends Model
 {

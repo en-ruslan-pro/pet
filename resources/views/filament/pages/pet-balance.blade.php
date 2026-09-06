@@ -20,6 +20,18 @@
             </x-filament::section>
         </div>
 
+        <x-filament::section :heading="__('pet.analytics.critical_needs')">
+            <div class="grid gap-2 md:grid-cols-3">
+                @foreach ($criticalNeeds as $need => $risk)
+                    <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/5">
+                        <p class="font-medium">{{ __('pet.needs.'.$need) }}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">{{ __('pet.analytics.critical_samples', ['count' => $risk['samples']]) }}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">{{ __('pet.analytics.estimated_critical_duration', ['seconds' => $risk['estimatedSeconds']]) }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </x-filament::section>
+
         <x-filament::section :heading="__('pet.analytics.creations_by_character')">
             <div class="grid gap-2 md:grid-cols-3">
                 @forelse ($creationsByCharacter as $character => $events)
@@ -43,8 +55,12 @@
                             <th class="px-2 py-2">{{ __('pet.analytics.active') }}</th>
                             <th class="px-2 py-2">{{ __('pet.analytics.finished') }}</th>
                             <th class="px-2 py-2">{{ __('pet.analytics.abandoned') }}</th>
+                            <th class="px-2 py-2">{{ __('pet.analytics.source') }}</th>
+                            <th class="px-2 py-2">{{ __('pet.analytics.average_start_delay') }}</th>
                             <th class="px-2 py-2">{{ __('pet.analytics.total_duration') }}</th>
                             <th class="px-2 py-2">{{ __('pet.analytics.average_duration') }}</th>
+                            <th class="px-2 py-2">{{ __('pet.analytics.average_effect') }}</th>
+                            <th class="px-2 py-2">{{ __('pet.analytics.needs_at_selection') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -55,11 +71,15 @@
                                 <td class="px-2 py-2">{{ $row['active'] }}</td>
                                 <td class="px-2 py-2">{{ $row['finished'] }}</td>
                                 <td class="px-2 py-2">{{ $row['abandoned'] }}</td>
+                                <td class="px-2 py-2">{{ __('pet.analytics.controller_count', ['count' => $row['controller']]) }} / {{ __('pet.analytics.autonomous_count', ['count' => $row['autonomous']]) }}</td>
+                                <td class="px-2 py-2">{{ __('pet.analytics.seconds', ['seconds' => round($row['averageStartMilliseconds'] / 1000, 1)]) }}</td>
                                 <td class="px-2 py-2">{{ __('pet.analytics.seconds', ['seconds' => round($row['totalMilliseconds'] / 1000, 1)]) }}</td>
                                 <td class="px-2 py-2">{{ __('pet.analytics.seconds', ['seconds' => round($row['averageMilliseconds'] / 1000, 1)]) }}</td>
+                                <td class="px-2 py-2">{{ __('pet.analytics.need_values', ['satiety' => ($row['averageNeedEffects']['satiety'] > 0 ? '+' : '').$row['averageNeedEffects']['satiety'], 'energy' => ($row['averageNeedEffects']['energy'] > 0 ? '+' : '').$row['averageNeedEffects']['energy'], 'happiness' => ($row['averageNeedEffects']['happiness'] > 0 ? '+' : '').$row['averageNeedEffects']['happiness']]) }}</td>
+                                <td class="px-2 py-2">{{ __('pet.analytics.need_values', ['satiety' => $row['averageNeedsBefore']['satiety'], 'energy' => $row['averageNeedsBefore']['energy'], 'happiness' => $row['averageNeedsBefore']['happiness']]) }}</td>
                             </tr>
                         @empty
-                            <tr><td class="px-2 py-3" colspan="7">{{ __('pet.analytics.no_data') }}</td></tr>
+                            <tr><td class="px-2 py-3" colspan="11">{{ __('pet.analytics.no_data') }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

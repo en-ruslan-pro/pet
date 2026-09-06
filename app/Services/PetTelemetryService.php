@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 
 class PetTelemetryService
 {
+    private const ACTION_TIMEOUT_SECONDS = 45;
+
     public function recordRoomCreated(Room $room): void
     {
         $room->refresh();
@@ -96,7 +98,6 @@ class PetTelemetryService
 
             if ($execution->status === 'requested') {
                 $execution->forceFill(['status' => 'started', 'started_at' => now()])->save();
-                $this->recordNeedSnapshot($room, 'action_started', $execution, force: true);
             }
 
             return $execution;
@@ -142,7 +143,7 @@ class PetTelemetryService
         return PetActionExecution::query()
             ->whereBelongsTo($room)
             ->whereIn('status', ['requested', 'started'])
-            ->where('requested_at', '<', now()->subMinutes(2))
+            ->where('requested_at', '<', now()->subSeconds(self::ACTION_TIMEOUT_SECONDS))
             ->update([
                 'status' => 'abandoned',
                 'finish_reason' => 'timeout',

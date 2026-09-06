@@ -47,16 +47,19 @@ class PetBalance extends Page
             ->groupBy('action_key');
         $needSnapshots = PetNeedSnapshot::query()
             ->whereBetween('recorded_at', [$from, $to])
-            ->orderBy('recorded_at')
+            ->latest('recorded_at')
+            ->limit(50)
             ->get();
         $actionRows = [];
 
         foreach ($executions as $key => $rows) {
             $finishedRows = $rows->where('status', 'finished');
+            $activeRows = $rows->whereIn('status', ['requested', 'started']);
             $totalMilliseconds = (int) $finishedRows->sum('duration_milliseconds');
             $actionRows[] = [
                 'key' => $key,
-                'count' => $rows->count(),
+                'started' => $rows->whereNotNull('started_at')->count(),
+                'active' => $activeRows->count(),
                 'finished' => $finishedRows->count(),
                 'abandoned' => $rows->where('status', 'abandoned')->count(),
                 'totalMilliseconds' => $totalMilliseconds,
@@ -73,6 +76,7 @@ class PetBalance extends Page
             'viewDurationSeconds' => $viewSessions->sum(fn (PetViewSession $session): int => $session->durationSeconds()),
             'actionRows' => $actionRows,
             'needSnapshots' => $needSnapshots,
+            'needSnapshotLimit' => 50,
         ];
     }
 }

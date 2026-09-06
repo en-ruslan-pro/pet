@@ -51,7 +51,10 @@ test('shows pet balance statistics to administrators', function () {
     $this->actingAs($user)
         ->get(PetBalance::getUrl())
         ->assertSee(__('pet.analytics.title'))
-        ->assertSee(__('pet.analytics.actions'));
+        ->assertSee(__('pet.analytics.actions'))
+        ->assertSee(__('pet.analytics.active'))
+        ->assertSee(__('pet.analytics.reason'))
+        ->assertSee(__('pet.analytics.history_limit', ['count' => 50]));
 });
 
 test('renders pet model form sections one below another', function () {

@@ -37,15 +37,15 @@ test('seeds the cat model with its supported action configuration', function () 
     expect($sleep->interaction_points)->toBe(['room_item_key' => 'bed']);
     expect(PetAction::query()->orderBy('key')->get()->mapWithKeys(fn (PetAction $action) => [$action->key => $action->configuration])->all())
         ->toBe([
-            'eat' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 8, 'energy' => 0, 'happiness' => 0]],
-            'idle' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 0.5, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => -4]],
-            'look_window' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => 1]],
-            'meow' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => -1, 'happiness' => 0]],
-            'play' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['satiety' => -4, 'energy' => -6, 'happiness' => 8]],
-            'scratch' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['satiety' => -1, 'energy' => -2, 'happiness' => 2]],
-            'sit' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -1, 'energy' => 2, 'happiness' => -3]],
-            'sleep' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -3, 'energy' => 8, 'happiness' => -4]],
-            'walk' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => -3, 'energy' => -5, 'happiness' => 0]],
+            'eat' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 10, 'energy' => 0, 'happiness' => 0]],
+            'idle' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 0.5, 'need_effects' => ['satiety' => 0, 'energy' => 0, 'happiness' => 0]],
+            'look_window' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 0, 'energy' => 0, 'happiness' => 1]],
+            'meow' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 0, 'energy' => 0, 'happiness' => 0]],
+            'play' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['satiety' => -1, 'energy' => -2, 'happiness' => 4]],
+            'scratch' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 2, 'need_effects' => ['satiety' => 0, 'energy' => -1, 'happiness' => 2]],
+            'sit' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 0, 'energy' => 1, 'happiness' => 0]],
+            'sleep' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 0, 'energy' => 4, 'happiness' => 0]],
+            'walk' => ['category' => 'autonomous', 'is_autonomous' => true, 'autonomous_weight' => 1, 'need_effects' => ['satiety' => 0, 'energy' => 0, 'happiness' => 0]],
         ]);
     expect($tabby->animationConfiguration()['sleep']['steps'])->toBe([[
         'key' => 'sleep.loop',

@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('character_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('pet_model_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('pet_action_execution_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('pet_balance_version_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('pet_balance_version_id')->nullable();
             $table->unsignedTinyInteger('satiety');
             $table->unsignedTinyInteger('energy');
             $table->unsignedTinyInteger('happiness');

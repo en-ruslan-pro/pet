@@ -2,7 +2,13 @@
 
 use App\Events\RoomCommandRequested;
 use App\Models\Character;
+use App\Models\PetAction;
+use App\Models\PetAnimationStep;
 use App\Models\PetModel;
+use App\Models\PetModelAction;
+use App\Models\PetModelActionStep;
+use App\Models\PetModelAnimationStep;
+use App\Models\PetModelAnimationStepClip;
 use App\Models\Room;
 use App\Services\RoomCommandSentryContext;
 use Database\Seeders\PetCatalogSeeder;
@@ -52,6 +58,31 @@ test('shows available characters when creating a room', function () {
         ->assertSee('Рыжий кот')
         ->assertSee('По умолчанию: Рыжик')
         ->assertSee('name="character_id"', false);
+});
+
+test('hides and rejects a character without animations for every base action', function () {
+    $action = PetAction::factory()->create(['key' => 'eat']);
+    $incompleteCharacter = Character::factory()->create([
+        'name' => 'Incomplete adventurer',
+    ]);
+    $readyModel = PetModel::factory()->create();
+    $step = PetAnimationStep::factory()->create(['key' => 'eat.use_item']);
+    $modelStep = PetModelAnimationStep::factory()->for($readyModel)->for($step, 'animationStep')->create();
+    PetModelAnimationStepClip::factory()->for($modelStep, 'modelStep')->create(['clip_name' => 'Use_Item']);
+    $modelAction = PetModelAction::factory()->for($readyModel)->for($action)->create();
+    PetModelActionStep::factory()->for($modelAction)->for($step, 'animationStep')->create();
+    $readyCharacter = Character::factory()->for($readyModel)->create(['name' => 'Ready adventurer']);
+
+    $this->get(route('room.create'))
+        ->assertSee('Ready adventurer')
+        ->assertDontSee('Incomplete adventurer');
+
+    $this->from(route('room.create'))
+        ->post(route('room.store'), ['character_id' => $incompleteCharacter->id])
+        ->assertRedirect(route('room.create'))
+        ->assertSessionHasErrors(['character_id' => __('pet.messages.character_not_ready')]);
+
+    $this->assertDatabaseMissing('rooms', ['character_id' => $incompleteCharacter->id]);
 });
 
 test('requires an existing character when creating a room', function () {

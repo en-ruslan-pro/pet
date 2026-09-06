@@ -28,6 +28,17 @@ class PetAction extends Model
         ];
     }
 
+    /** @return array<int, string> */
+    public static function baseActionKeys(): array
+    {
+        return static::query()
+            ->orderBy('key')
+            ->pluck('key')
+            ->map(static fn (mixed $key): string => (string) $key)
+            ->values()
+            ->all();
+    }
+
     /** @return BelongsToMany<PetModel, $this> */
     public function models(): BelongsToMany
     {

@@ -125,7 +125,7 @@ class PetCatalogSeeder extends Seeder
                 ],
             );
 
-            foreach ($this->kayKitActions() as $key => [$name, $steps]) {
+            foreach ($this->kayKitActions() as $key => [$name, $steps, $executionConfiguration, $interactionPoints]) {
                 $action = PetAction::query()->updateOrCreate(
                     ['key' => $key],
                     ['name' => $name, 'configuration' => $this->actionSettings($key)],
@@ -136,8 +136,8 @@ class PetCatalogSeeder extends Seeder
                         'pet_action_id' => $action->id,
                     ],
                     [
-                        'execution_configuration' => null,
-                        'interaction_points' => null,
+                        'execution_configuration' => $executionConfiguration,
+                        'interaction_points' => $interactionPoints,
                         'is_available' => true,
                     ],
                 );
@@ -178,24 +178,28 @@ class PetCatalogSeeder extends Seeder
     }
 
     /**
-     * @return array<string, array{0: string, 1: list<array{0: string, 1: string, 2: list<string>, 3: bool, 4: ?int}>}>
+     * @return array<string, array{0: string, 1: list<array{0: string, 1: string, 2: list<string>, 3: bool, 4: ?int}>, 2: ?array<string, array<int, int>>, 3: ?array<string, string>}>
      */
     private function kayKitActions(): array
     {
         return [
-            'idle' => ['Ожидает', [['idle.loop', 'Ожидание', ['Idle', 'Unarmed_Idle'], true, null]]],
-            'walk' => ['Гуляет', [['walk.loop', 'Прогулка', ['Walking_A', 'Walking_B'], true, null]]],
+            'idle' => ['Ожидает', [['idle.loop', 'Ожидание', ['Idle', 'Unarmed_Idle'], true, null]], null, null],
+            'walk' => ['Гуляет', [['walk.loop', 'Прогулка', ['Walking_A', 'Walking_B'], true, null]], null, null],
             'sit' => ['Сидит', [
                 ['sit.start', 'Садится', ['Sit_Chair_Down', 'Sit_Floor_Down'], false, null],
                 ['sit.loop', 'Сидит', ['Sit_Chair_Idle', 'Sit_Floor_Idle'], true, 8],
                 ['sit.finish', 'Встаёт', ['Sit_Chair_StandUp', 'Sit_Floor_StandUp'], false, null],
-            ]],
+            ], null, null],
             'sleep' => ['Спит', [
                 ['sleep.start', 'Ложится', ['Lie_Down'], false, null],
                 ['sleep.loop', 'Спит', ['Lie_Idle', 'Lie_Pose'], true, 10],
                 ['sleep.finish', 'Встаёт после сна', ['Lie_StandUp'], false, null],
-            ]],
-            'play' => ['Играет', [['play.loop', 'Играет', ['Cheer', 'Jump_Idle', 'Spellcasting'], false, null]]],
+            ], null, null],
+            'eat' => ['Ест', [
+                ['eat.pick_up', 'Берёт еду', ['PickUp'], false, null],
+                ['eat.use_item', 'Ест', ['Use_Item'], false, null],
+            ], ['duration_seconds' => [6, 9]], ['room_item_key' => 'food_bowl']],
+            'play' => ['Играет', [['play.loop', 'Играет', ['Cheer', 'Jump_Idle', 'Spellcasting'], false, null]], null, null],
         ];
     }
 

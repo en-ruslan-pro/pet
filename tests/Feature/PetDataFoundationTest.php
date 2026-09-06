@@ -132,12 +132,26 @@ test('seeds KayKit adventurers with configured game action sequences', function 
     $this->seed(PetCatalogSeeder::class);
 
     $knight = Character::query()->where('name', 'Рыцарь')->sole();
+    $adventurers = Character::query()
+        ->with('petModel')
+        ->whereHas('petModel.type', fn ($query) => $query->where('key', 'adventurer'))
+        ->get();
+    $eat = $knight->petModel->animationConfiguration()['eat'];
 
     expect($knight->petModel->asset_path)->toBe('/models/kaykit-adventurers/Knight.glb');
-    expect($knight->petModel->animationClipNames())->toHaveCount(17);
-    expect($knight->petModel->animationClipNames())->toContain('Idle', 'Walking_A', 'Lie_Down', 'Lie_StandUp');
+    expect($knight->petModel->animationClipNames())->toHaveCount(19);
+    expect($knight->petModel->animationClipNames())->toContain('Idle', 'Walking_A', 'Lie_Down', 'Lie_StandUp', 'PickUp', 'Use_Item');
     expect($knight->petModel->animationConfiguration()['sleep']['steps'])->toHaveCount(3);
-    expect(Character::query()->whereHas('petModel.type', fn ($query) => $query->where('key', 'adventurer'))->count())->toBe(5);
+    expect($eat['steps'])->toBe([
+        ['key' => 'eat.pick_up', 'durationSeconds' => null, 'clips' => [['name' => 'PickUp', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => false]]],
+        ['key' => 'eat.use_item', 'durationSeconds' => null, 'clips' => [['name' => 'Use_Item', 'weight' => 1, 'playbackRate' => 1.0, 'isLooping' => false]]],
+    ]);
+    expect($eat['settings']['targetRoomItemKey'])->toBe('food_bowl');
+    expect($adventurers)->toHaveCount(5);
+
+    foreach ($adventurers as $adventurer) {
+        expect($adventurer->petModel->animationConfiguration()['eat']['steps'])->toHaveCount(2);
+    }
 });
 
 test('persists a pet and configured room item for a room', function () {

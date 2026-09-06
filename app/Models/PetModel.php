@@ -127,6 +127,15 @@ class PetModel extends Model
         return $configuration;
     }
 
+    /**
+     * @param  array<int, string>  $actionKeys
+     * @return array<int, string>
+     */
+    public function missingActionAnimations(array $actionKeys): array
+    {
+        return array_values(array_diff($actionKeys, array_keys($this->animationConfiguration())));
+    }
+
     /** @return HasMany<Pet, $this> */
     public function pets(): HasMany
     {

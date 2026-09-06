@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\RoomCommandRequested;
 use App\Models\Character;
+use App\Models\PetAction;
 use App\Models\PetActionExecution;
 use App\Models\PetViewSession;
 use App\Models\Room;
@@ -14,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Throwable;
 
@@ -23,11 +25,15 @@ class RoomController extends Controller
 
     public function create(): View
     {
+        $actionKeys = PetAction::baseActionKeys();
+
         return view('rooms.create', [
             'characters' => Character::query()
-                ->with('petModel')
+                ->with($this->characterAnimationRelations())
                 ->orderBy('name')
-                ->get(),
+                ->get()
+                ->filter(fn (Character $character): bool => $character->isReadyForSelection($actionKeys))
+                ->values(),
         ]);
     }
 
@@ -38,7 +44,16 @@ class RoomController extends Controller
             'pet_name' => ['nullable', 'string', 'max:30'],
         ]);
 
-        $character = Character::query()->whereKey($validated['character_id'])->firstOrFail();
+        $character = Character::query()
+            ->with($this->characterAnimationRelations())
+            ->whereKey($validated['character_id'])
+            ->firstOrFail();
+
+        if (! $character->isReadyForSelection(PetAction::baseActionKeys())) {
+            throw ValidationException::withMessages([
+                'character_id' => __('pet.messages.character_not_ready'),
+            ]);
+        }
         $room = Room::createForCharacter($character, $validated['pet_name'] ?? null);
         $telemetry->recordRoomCreated($room);
         $this->grantAccess($request, $room);
@@ -216,6 +231,17 @@ class RoomController extends Controller
     private function grantAccess(Request $request, Room $room): void
     {
         $request->session()->put('room-access.'.$room->code, true);
+    }
+
+    /** @return list<string> */
+    private function characterAnimationRelations(): array
+    {
+        return [
+            'petModel.animationSteps.animationStep',
+            'petModel.animationSteps.clips',
+            'petModel.petModelActions.petAction',
+            'petModel.petModelActions.steps.animationStep',
+        ];
     }
 
     private function ensureAccess(Request $request, Room $room): void

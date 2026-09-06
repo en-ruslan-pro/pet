@@ -26,6 +26,25 @@ class Character extends Model
         return $this->belongsTo(PetModel::class);
     }
 
+    /**
+     * @param  array<int, string>  $actionKeys
+     * @return array<int, string>
+     */
+    public function missingBaseActionAnimations(array $actionKeys): array
+    {
+        if ($this->petModel === null) {
+            return $actionKeys;
+        }
+
+        return $this->petModel->missingActionAnimations($actionKeys);
+    }
+
+    /** @param array<int, string> $actionKeys */
+    public function isReadyForSelection(array $actionKeys): bool
+    {
+        return $this->missingBaseActionAnimations($actionKeys) === [];
+    }
+
     /** @return HasMany<Room, $this> */
     public function rooms(): HasMany
     {

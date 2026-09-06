@@ -20,6 +20,7 @@ return [
         'animation' => 'Animation: :name',
         'meowing' => ':name is meowing',
         'model_load_failed' => 'Could not load the pet model',
+        'character_not_ready' => 'This character is not ready to use yet.',
     ],
     'needs' => [
         'satiety' => 'Satiety',

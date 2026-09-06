@@ -20,6 +20,7 @@ return [
         'animation' => 'Анімація: :name',
         'meowing' => ':name нявкає',
         'model_load_failed' => 'Не вдалося завантажити модель улюбленця',
+        'character_not_ready' => 'Цей персонаж ще не готовий до використання.',
     ],
     'needs' => [
         'satiety' => 'Ситість',

@@ -4,6 +4,7 @@ use App\Events\RoomCommandRequested;
 use App\Models\Character;
 use App\Models\PetModel;
 use App\Models\Room;
+use App\Services\RoomCommandSentryContext;
 use Database\Seeders\PetCatalogSeeder;
 use Illuminate\Contracts\Broadcasting\Factory as BroadcastingFactory;
 use Illuminate\Support\Facades\Broadcast;
@@ -219,6 +220,10 @@ test('does not change pet needs when the realtime command cannot be broadcast', 
         ->shouldReceive('queue')
         ->once()
         ->andThrow(new RuntimeException('Reverb is unavailable.'));
+    mock(RoomCommandSentryContext::class)
+        ->shouldReceive('add')
+        ->once()
+        ->withArgs(fn (Room $reportedRoom, string $action, ?int $executionId): bool => $reportedRoom->is($room) && $action === 'feed' && $executionId > 0);
 
     $this->get(route('room.show', $room));
 

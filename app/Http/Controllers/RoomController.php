@@ -8,15 +8,19 @@ use App\Models\PetActionExecution;
 use App\Models\PetViewSession;
 use App\Models\Room;
 use App\Services\PetTelemetryService;
+use App\Services\RoomCommandSentryContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Throwable;
 
 class RoomController extends Controller
 {
+    public function __construct(private RoomCommandSentryContext $sentryContext) {}
+
     public function create(): View
     {
         return view('rooms.create', [
@@ -127,7 +131,7 @@ class RoomController extends Controller
 
         $execution = DB::transaction(function () use ($room, $action, $behavior, $telemetry): PetActionExecution {
             $execution = $telemetry->requestAction($room, $behavior, 'controller');
-            RoomCommandRequested::dispatch($room, $action, $execution->id);
+            $this->dispatchRoomCommand($room, $action, $execution->id);
 
             return $execution;
         });
@@ -201,7 +205,7 @@ class RoomController extends Controller
     public function sendMeow(Request $request, Room $room): JsonResponse
     {
         $this->ensureAccess($request, $room);
-        RoomCommandRequested::dispatch($room, 'meow');
+        $this->dispatchRoomCommand($room, 'meow');
 
         return response()->json([
             'action' => 'meow',
@@ -217,5 +221,16 @@ class RoomController extends Controller
     private function ensureAccess(Request $request, Room $room): void
     {
         abort_unless($request->session()->get('room-access.'.$room->code) === true, 403);
+    }
+
+    private function dispatchRoomCommand(Room $room, string $action, ?int $executionId = null): void
+    {
+        try {
+            RoomCommandRequested::dispatch($room, $action, $executionId);
+        } catch (Throwable $exception) {
+            $this->sentryContext->add($room, $action, $executionId);
+
+            throw $exception;
+        }
     }
 }

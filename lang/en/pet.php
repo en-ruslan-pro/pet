@@ -29,6 +29,11 @@ return [
     ],
     'analytics' => [
         'title' => 'Pet balance',
+        'clear_action' => 'Clear analytics logs',
+        'clear_heading' => 'Clear all analytics logs?',
+        'clear_description' => 'This permanently removes pet creation events, TV sessions, action executions, need samples, and balance versions. Rooms, pets, and catalog settings are not changed.',
+        'clear_confirm' => 'Clear logs',
+        'clear_success' => 'Analytics logs were cleared.',
         'period' => 'Last 7 days: :from – :to',
         'created' => 'Characters created',
         'view_sessions' => 'TV sessions',

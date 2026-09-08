@@ -221,6 +221,58 @@ test('refreshes pet needs as time passes', function () {
     ]);
 });
 
+test('refreshes every need by elapsed time when status is checked repeatedly', function () {
+    $start = now();
+    $roomWithOneRefresh = Room::factory()->create([
+        'hunger' => 20,
+        'energy' => 80,
+        'happiness' => 80,
+        'pet_needs_updated_at' => $start,
+    ]);
+    $roomWithRepeatedRefreshes = Room::factory()->create([
+        'hunger' => 20,
+        'energy' => 80,
+        'happiness' => 80,
+        'pet_needs_updated_at' => $start,
+    ]);
+
+    $this->travelTo($start->copy()->addMinutes(5));
+    $roomWithRepeatedRefreshes->refreshPetNeeds();
+    $this->travelTo($start->copy()->addMinutes(10));
+    $roomWithRepeatedRefreshes->refreshPetNeeds();
+    $this->travelTo($start->copy()->addMinutes(15));
+    $roomWithRepeatedRefreshes->refreshPetNeeds();
+    $this->travelTo($start->copy()->addMinutes(30));
+    $roomWithRepeatedRefreshes->refreshPetNeeds();
+    $roomWithOneRefresh->refreshPetNeeds();
+
+    expect($roomWithRepeatedRefreshes->fresh()->petNeeds())->toBe([
+        'satiety' => 74,
+        'energy' => 77,
+        'happiness' => 78,
+    ]);
+    expect($roomWithOneRefresh->fresh()->petNeeds())->toBe([
+        'satiety' => 74,
+        'energy' => 77,
+        'happiness' => 78,
+    ]);
+});
+
+test('does not reset natural need decay when an action changes needs', function () {
+    $start = now();
+    $room = Room::factory()->create([
+        'energy' => 80,
+        'pet_needs_updated_at' => $start,
+    ]);
+
+    $this->travelTo($start->copy()->addMinutes(5));
+    $room->applyNeedEffects(['happiness' => 10]);
+    $this->travelTo($start->copy()->addMinutes(10));
+    $room->refreshPetNeeds();
+
+    expect($room->fresh()->petNeeds()['energy'])->toBe(79);
+});
+
 test('forbids pet care commands before the room is opened in the browser session', function () {
     Event::fake([RoomCommandRequested::class]);
     $room = Room::factory()->create(['code' => 'LOCK01']);

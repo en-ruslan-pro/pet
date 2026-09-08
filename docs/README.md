@@ -41,3 +41,6 @@ php artisan shield:super-admin --panel=dostup --user=<user-id>
 ## 3D-модели комнаты
 
 Библиотека GLB-ассетов для интерьера находится в [каталоге моделей комнаты](assets/room-models.md). Там приведены пути, состав набора и рекомендации по подключению в сцену.
+
+Актуальные задачи по существующему MVP и критерии их завершения — в
+[поэтапном плане доработок](development/current-functionality-improvements.md).

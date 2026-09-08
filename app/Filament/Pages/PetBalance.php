@@ -6,8 +6,11 @@ use App\Models\CharacterCreationEvent;
 use App\Models\PetActionExecution;
 use App\Models\PetNeedSnapshot;
 use App\Models\PetViewSession;
+use App\Services\PetTelemetryService;
 use BackedEnum;
 use Carbon\CarbonInterface;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
@@ -28,6 +31,28 @@ class PetBalance extends Page
     public function getTitle(): string
     {
         return __('pet.analytics.title');
+    }
+
+    /** @return array<Action> */
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('clearAnalytics')
+                ->label(__('pet.analytics.clear_action'))
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading(__('pet.analytics.clear_heading'))
+                ->modalDescription(__('pet.analytics.clear_description'))
+                ->modalSubmitActionLabel(__('pet.analytics.clear_confirm'))
+                ->action(function (PetTelemetryService $telemetry): void {
+                    $telemetry->clearAnalytics();
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('pet.analytics.clear_success'))
+                        ->send();
+                }),
+        ];
     }
 
     /** @return array<string, mixed> */

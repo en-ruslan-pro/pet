@@ -114,7 +114,7 @@ class PetTelemetryService
                 return $execution;
             }
 
-            abort_unless(in_array($execution->status, ['requested', 'started'], true), 409);
+            abort_unless($execution->status === 'started', 409);
             $room = Room::query()->lockForUpdate()->findOrFail($room->id);
             $room->refreshPetNeeds();
             $this->recordNeedSnapshot($room, 'action_before_finish', $execution, force: true);
@@ -138,18 +138,34 @@ class PetTelemetryService
         });
     }
 
-    public function abandonExpiredActions(Room $room): int
+    public function abandonExpiredActions(?Room $room = null): int
     {
-        return PetActionExecution::query()
-            ->whereBelongsTo($room)
+        $query = PetActionExecution::query()
             ->whereIn('status', ['requested', 'started'])
-            ->where('requested_at', '<', now()->subSeconds(self::ACTION_TIMEOUT_SECONDS))
+            ->where('requested_at', '<', now()->subSeconds(self::ACTION_TIMEOUT_SECONDS));
+
+        if ($room !== null) {
+            $query->whereBelongsTo($room);
+        }
+
+        return $query
             ->update([
                 'status' => 'abandoned',
                 'finish_reason' => 'timeout',
                 'finished_at' => now(),
                 'updated_at' => now(),
             ]);
+    }
+
+    public function clearAnalytics(): void
+    {
+        DB::transaction(function (): void {
+            PetNeedSnapshot::query()->delete();
+            PetActionExecution::query()->delete();
+            PetViewSession::query()->delete();
+            CharacterCreationEvent::query()->delete();
+            PetBalanceVersion::query()->delete();
+        });
     }
 
     public function recordNeedSnapshot(Room $room, string $reason, ?PetActionExecution $execution = null, bool $force = false): ?PetNeedSnapshot

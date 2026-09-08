@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Database\Factories\RoomFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
- * @property Carbon|null $tv_connected_at
- * @property Carbon|null $pet_needs_updated_at
+ * @property CarbonInterface|null $tv_connected_at
+ * @property CarbonInterface|null $pet_needs_updated_at
+ * @property CarbonInterface|null $satiety_updated_at
+ * @property CarbonInterface|null $energy_updated_at
+ * @property CarbonInterface|null $happiness_updated_at
  */
 class Room extends Model
 {
@@ -36,6 +39,9 @@ class Room extends Model
         'energy',
         'happiness',
         'pet_needs_updated_at',
+        'satiety_updated_at',
+        'energy_updated_at',
+        'happiness_updated_at',
     ];
 
     /** @return array<string, string> */
@@ -44,6 +50,9 @@ class Room extends Model
         return [
             'tv_connected_at' => 'datetime',
             'pet_needs_updated_at' => 'datetime',
+            'satiety_updated_at' => 'datetime',
+            'energy_updated_at' => 'datetime',
+            'happiness_updated_at' => 'datetime',
         ];
     }
 
@@ -58,6 +67,9 @@ class Room extends Model
             'character_id' => $character->id,
             'pet_name' => filled($petName) ? $petName : $character->default_name,
             'pet_needs_updated_at' => now(),
+            'satiety_updated_at' => now(),
+            'energy_updated_at' => now(),
+            'happiness_updated_at' => now(),
         ]);
     }
 
@@ -73,27 +85,21 @@ class Room extends Model
 
     public function refreshPetNeeds(): self
     {
-        if ($this->pet_needs_updated_at === null) {
-            $this->forceFill(['pet_needs_updated_at' => now()])->save();
-
-            return $this;
-        }
-
-        $elapsedWholeMinutes = (int) floor($this->pet_needs_updated_at->diffInMinutes(now()));
-
-        if ($elapsedWholeMinutes < 5) {
-            return $this;
-        }
-
-        $hungerIncrease = intdiv($elapsedWholeMinutes, self::NEED_DECAY['satiety_per_minutes']);
-        $energyDecrease = intdiv($elapsedWholeMinutes, self::NEED_DECAY['energy_per_minutes']);
-        $happinessDecrease = intdiv($elapsedWholeMinutes, self::NEED_DECAY['happiness_per_minutes']);
+        $now = now();
+        $satietyUpdatedAt = $this->needUpdatedAt('satiety', $now);
+        $energyUpdatedAt = $this->needUpdatedAt('energy', $now);
+        $happinessUpdatedAt = $this->needUpdatedAt('happiness', $now);
+        $hungerIncrease = intdiv($this->elapsedWholeMinutes($satietyUpdatedAt, $now), self::NEED_DECAY['satiety_per_minutes']);
+        $energyDecrease = intdiv($this->elapsedWholeMinutes($energyUpdatedAt, $now), self::NEED_DECAY['energy_per_minutes']);
+        $happinessDecrease = intdiv($this->elapsedWholeMinutes($happinessUpdatedAt, $now), self::NEED_DECAY['happiness_per_minutes']);
 
         $this->forceFill([
             'hunger' => min(100, $this->hunger + $hungerIncrease),
             'energy' => max(0, $this->energy - $energyDecrease),
             'happiness' => max(0, $this->happiness - $happinessDecrease),
-            'pet_needs_updated_at' => now(),
+            'satiety_updated_at' => $satietyUpdatedAt->addMinutes($hungerIncrease * self::NEED_DECAY['satiety_per_minutes']),
+            'energy_updated_at' => $energyUpdatedAt->addMinutes($energyDecrease * self::NEED_DECAY['energy_per_minutes']),
+            'happiness_updated_at' => $happinessUpdatedAt->addMinutes($happinessDecrease * self::NEED_DECAY['happiness_per_minutes']),
         ])->save();
 
         return $this;
@@ -119,7 +125,6 @@ class Room extends Model
             'hunger' => 100 - $changes['satiety'],
             'energy' => $changes['energy'] ?? $this->energy,
             'happiness' => $changes['happiness'] ?? $this->happiness,
-            'pet_needs_updated_at' => now(),
         ])->save();
 
         return $this;
@@ -138,7 +143,6 @@ class Room extends Model
             'hunger' => 100 - $changes['satiety'],
             'energy' => $changes['energy'],
             'happiness' => $changes['happiness'],
-            'pet_needs_updated_at' => now(),
         ])->save();
 
         return $this;
@@ -170,5 +174,17 @@ class Room extends Model
     public function getRouteKeyName(): string
     {
         return 'code';
+    }
+
+    private function needUpdatedAt(string $need, CarbonInterface $fallback): CarbonInterface
+    {
+        $attribute = "{$need}_updated_at";
+
+        return $this->{$attribute} ?? $this->pet_needs_updated_at ?? $fallback;
+    }
+
+    private function elapsedWholeMinutes(CarbonInterface $updatedAt, CarbonInterface $now): int
+    {
+        return (int) floor($updatedAt->diffInMinutes($now));
     }
 }

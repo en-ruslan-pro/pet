@@ -30,3 +30,11 @@ test('runs the character animation check every hour', function () {
     expect($event)->not->toBeNull();
     expect($event->expression)->toBe('0 * * * *');
 });
+
+test('runs the expired action cleanup every minute', function () {
+    $event = collect(Schedule::events())
+        ->first(fn ($event): bool => str_contains($event->command, 'pet:abandon-expired-actions'));
+
+    expect($event)->not->toBeNull();
+    expect($event->expression)->toBe('* * * * *');
+});

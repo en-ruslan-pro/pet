@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('horizon:snapshot')->everyFiveMinutes();
 Schedule::command('pet:check-character-animations')->hourly()->withoutOverlapping();
+Schedule::command('pet:abandon-expired-actions')->everyMinute()->withoutOverlapping();

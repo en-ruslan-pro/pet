@@ -2,10 +2,14 @@
 
 use App\Filament\Pages\PetBalance;
 use App\Filament\Resources\PetModels\Schemas\PetModelForm;
+use App\Models\CharacterCreationEvent;
 use App\Models\PetActionExecution;
+use App\Models\PetBalanceVersion;
 use App\Models\PetNeedSnapshot;
+use App\Models\PetViewSession;
 use App\Models\Room;
 use App\Models\User;
+use App\Services\PetTelemetryService;
 use Filament\Schemas\Schema;
 use Spatie\Permission\Models\Role;
 
@@ -75,6 +79,30 @@ test('shows pet balance statistics to administrators', function () {
         ->assertSee(__('pet.analytics.need_values', ['satiety' => '+10', 'energy' => '+5', 'happiness' => '-2']))
         ->assertSee(__('pet.analytics.critical_samples', ['count' => 1]))
         ->assertSee(__('pet.analytics.history_limit', ['count' => 50]));
+});
+
+test('clears analytics logs from the pet balance page', function () {
+    $user = User::factory()->create();
+    $user->assignRole(Role::findOrCreate('admin'));
+    $room = Room::factory()->create();
+    CharacterCreationEvent::factory()->for($room)->create();
+    PetViewSession::factory()->for($room)->create();
+    PetActionExecution::factory()->for($room)->create();
+    PetNeedSnapshot::factory()->for($room)->create();
+    PetBalanceVersion::factory()->create();
+
+    $this->actingAs($user)
+        ->get(PetBalance::getUrl())
+        ->assertSee(__('pet.analytics.clear_action'));
+
+    app(PetTelemetryService::class)->clearAnalytics();
+
+    $this->assertDatabaseEmpty('character_creation_events');
+    $this->assertDatabaseEmpty('pet_view_sessions');
+    $this->assertDatabaseEmpty('pet_action_executions');
+    $this->assertDatabaseEmpty('pet_need_snapshots');
+    $this->assertDatabaseEmpty('pet_balance_versions');
+    $this->assertDatabaseHas('rooms', ['id' => $room->id]);
 });
 
 test('lists need snapshots by ID when their timestamps match', function () {

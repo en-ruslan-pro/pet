@@ -83,6 +83,21 @@ test('applies a configured action effect once after its TV completion', function
     expect(PetNeedSnapshot::query()->where('pet_action_execution_id', $execution->id)->count())->toBe(2);
 });
 
+test('rejects a completion that was not started by the TV', function () {
+    Event::fake([RoomCommandRequested::class]);
+    $this->seed(PetCatalogSeeder::class);
+    $character = Character::query()->where('name', 'Полосатая кошка')->sole();
+    $room = Room::factory()->for($character)->create(['code' => 'START1']);
+
+    $this->get(route('room.show', $room));
+    $this->postJson(route('room.actions', [$room, 'feed']))->assertOk();
+    $execution = PetActionExecution::query()->sole();
+
+    $this->postJson(route('tv.actions.execution.finish', [$room, $execution]))->assertConflict();
+
+    expect($execution->fresh()->status)->toBe('requested');
+});
+
 test('abandons an unconfirmed action without applying its effect', function () {
     Event::fake([RoomCommandRequested::class]);
     $this->seed(PetCatalogSeeder::class);
@@ -136,4 +151,19 @@ test('forbids telemetry before the TV room is opened in the browser session', fu
     $room = Room::factory()->create(['code' => 'SAFE02']);
 
     $this->postJson(route('tv.sessions.start', $room), ['client_session_id' => (string) Str::uuid()])->assertForbidden();
+});
+
+test('abandons expired actions when the scheduled command runs without a TV heartbeat', function () {
+    $execution = PetActionExecution::factory()->create([
+        'status' => 'requested',
+        'requested_at' => now()->subSeconds(46),
+    ]);
+
+    $this->artisan('pet:abandon-expired-actions')
+        ->expectsOutput('Abandoned 1 expired pet action(s).')
+        ->assertSuccessful();
+
+    expect($execution->fresh())
+        ->status->toBe('abandoned')
+        ->finish_reason->toBe('timeout');
 });

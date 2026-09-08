@@ -117,7 +117,7 @@ test('continues an action when its configured room target is unavailable', funct
 
     expect($scene)
         ->toContain('if (target === undefined) {')
-        ->toContain('setAction(action, animationClips);');
+        ->toContain('setAction(action, animationClips, options);');
 });
 
 test('applies the walking effect before starting a queued room action', function () {

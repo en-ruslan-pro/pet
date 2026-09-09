@@ -123,6 +123,17 @@ test('opens the tv room from its connection code and records the connection', fu
     expect($room->fresh()->isTvConnected())->toBeTrue();
 });
 
+test('opens the tv room directly from its link', function () {
+    $room = Room::factory()->create(['code' => 'DIRECT']);
+
+    $this->get(route('tv.show', $room))
+        ->assertOk()
+        ->assertSessionHas('room-access.'.$room->code, fn (array $access): bool => in_array('tv', $access['roles'], true));
+
+    $this->post(route('tv.heartbeat', $room))
+        ->assertOk();
+});
+
 test('shows TV connection diagnostics only in debug mode', function () {
     $room = Room::factory()->create(['code' => 'DEBUG1']);
     $this->post(route('tv.enter'), ['code' => $room->code]);

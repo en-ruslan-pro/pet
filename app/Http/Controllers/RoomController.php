@@ -81,7 +81,7 @@ class RoomController extends Controller
 
     public function showTv(Request $request, Room $room, PetTelemetryService $telemetry): View
     {
-        $this->ensureAccess($request, $room, 'tv');
+        $this->grantAccess($request, $room, 'tv');
         $room->refreshPetNeeds();
         $telemetry->recordNeedSnapshot($room, 'sync');
         $room->update(['tv_connected_at' => now()]);

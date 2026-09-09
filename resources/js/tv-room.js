@@ -10,6 +10,7 @@ if (tvRoom !== null) {
     const reverb = JSON.parse(tvRoom.dataset.reverb ?? '{}');
     const character = JSON.parse(tvRoom.dataset.character ?? 'null');
     const petNeeds = JSON.parse(tvRoom.dataset.petNeeds ?? '{}');
+    const messages = JSON.parse(tvRoom.dataset.messages ?? '{}');
     const sendToScene = (message) => frame?.contentWindow?.postMessage(message, window.location.origin);
     const request = (url, options = {}) => fetch(url, {
         method: 'POST',
@@ -23,10 +24,47 @@ if (tvRoom !== null) {
         ...options,
     });
     const clientSessionId = crypto.randomUUID();
+    const device = {
+        user_agent: navigator.userAgent,
+        platform: navigator.userAgentData?.platform ?? navigator.platform,
+        language: navigator.language,
+        screen_width: window.screen.width,
+        screen_height: window.screen.height,
+        pixel_ratio: window.devicePixelRatio,
+    };
     let viewSessionId;
     const executionIdsByToken = new Map();
     const pendingFinishTokens = new Set();
+    const restoredExecutionIds = new Set();
     let viewSessionPromise;
+
+    const wait = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+    const requestWithRetry = async (url, options = {}) => {
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+            try {
+                const response = await request(url, options);
+
+                if (response.ok || response.status < 500 || attempt === 2) {
+                    return response;
+                }
+            } catch (error) {
+                if (attempt === 2) {
+                    throw error;
+                }
+            }
+
+            await wait(500 * (attempt + 1));
+        }
+    };
+
+    const restoreActiveExecution = (execution) => {
+        if (execution === null || execution === undefined || restoredExecutionIds.has(execution.id)) {
+            return;
+        }
+
+        restoredExecutionIds.add(execution.id);
+        sendToScene({ action: execution.action, executionId: execution.id, needs: execution.needs });
+    };
 
     window.Pusher = Pusher;
 
@@ -50,11 +88,12 @@ if (tvRoom !== null) {
             return request(tvRoom.dataset.heartbeatUrl);
         }
 
-        const response = await request(tvRoom.dataset.sessionHeartbeatUrl.replace('__session__', String(viewSessionId)));
+        const response = await requestWithRetry(tvRoom.dataset.sessionHeartbeatUrl.replace('__session__', String(viewSessionId)));
 
         if (response.ok) {
             const payload = await response.json();
             sendToScene({ action: 'sync-needs', needs: payload.needs });
+            restoreActiveExecution(payload.activeExecution);
         }
 
         return response;
@@ -65,7 +104,7 @@ if (tvRoom !== null) {
             return viewSessionId;
         }
 
-        viewSessionPromise ??= request(tvRoom.dataset.sessionStartUrl, { body: JSON.stringify({ client_session_id: clientSessionId }) })
+        viewSessionPromise ??= requestWithRetry(tvRoom.dataset.sessionStartUrl, { body: JSON.stringify({ client_session_id: clientSessionId, device }) })
             .then(async (response) => {
                 if (! response.ok) {
                     return undefined;
@@ -74,6 +113,10 @@ if (tvRoom !== null) {
                 viewSessionId = (await response.json()).id;
 
                 return viewSessionId;
+            }).catch((error) => {
+                viewSessionPromise = undefined;
+
+                throw error;
             });
 
         return viewSessionPromise;
@@ -107,8 +150,8 @@ if (tvRoom !== null) {
 
             const executionId = event.data.executionId;
             const response = executionId === undefined
-                ? await request(tvRoom.dataset.autonomousActionUrl, { body: JSON.stringify({ action: event.data.action, view_session_id: sessionId }) })
-                : await request(tvRoom.dataset.actionStartUrl.replace('__execution__', String(executionId)), { body: JSON.stringify({ view_session_id: sessionId }) });
+                ? await requestWithRetry(tvRoom.dataset.autonomousActionUrl, { body: JSON.stringify({ action: event.data.action, view_session_id: sessionId }) })
+                : await requestWithRetry(tvRoom.dataset.actionStartUrl.replace('__execution__', String(executionId)), { body: JSON.stringify({ view_session_id: sessionId }) });
 
             if (! response.ok) {
                 return;
@@ -143,14 +186,16 @@ if (tvRoom !== null) {
                 return;
             }
 
-            const response = await request(tvRoom.dataset.actionFinishUrl.replace('__execution__', String(executionId)), { body: JSON.stringify({ view_session_id: sessionId }) });
+            const response = await requestWithRetry(tvRoom.dataset.actionFinishUrl.replace('__execution__', String(executionId)), { body: JSON.stringify({ view_session_id: sessionId }) });
 
             if (response.ok) {
                 const payload = await response.json();
                 sendToScene({ action: 'sync-needs', needs: payload.needs });
             }
 
-            executionIdsByToken.delete(event.data.token);
+            if (response.ok) {
+                executionIdsByToken.delete(event.data.token);
+            }
         }
     });
 
@@ -160,8 +205,18 @@ if (tvRoom !== null) {
         if (status !== null) {
             status.textContent = 'Телевизор подключён';
         }
+    }).catch(() => {
+        if (status !== null) {
+            status.textContent = messages.connectionUnavailable;
+        }
     });
-    window.setInterval(heartbeat, 10_000);
+    window.setInterval(() => {
+        heartbeat().catch(() => {
+            if (status !== null) {
+                status.textContent = messages.connectionUnavailable;
+            }
+        });
+    }, 10_000);
 
     window.addEventListener('pagehide', () => {
         if (viewSessionId === undefined) {

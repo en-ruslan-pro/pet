@@ -21,6 +21,7 @@ return [
         'meowing' => ':name нявкає',
         'model_load_failed' => 'Не вдалося завантажити модель улюбленця',
         'character_not_ready' => 'Цей персонаж ще не готовий до використання.',
+        'tv_connection_unavailable' => 'Підключення до TV недоступне',
     ],
     'needs' => [
         'satiety' => 'Ситість',

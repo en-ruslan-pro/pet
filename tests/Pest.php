@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Room;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,7 +45,26 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/** @return array{user_agent: string, platform: string, language: string, screen_width: int, screen_height: int, pixel_ratio: float} */
+function tvDevice(): array
 {
-    // ..
+    return [
+        'user_agent' => 'Virtual Pet TV test browser',
+        'platform' => 'testOS',
+        'language' => 'en',
+        'screen_width' => 1920,
+        'screen_height' => 1080,
+        'pixel_ratio' => 1.0,
+    ];
+}
+
+/** @param list<'controller'|'tv'> $roles */
+function grantRoomAccess(TestCase $test, Room $room, array $roles): void
+{
+    $test->withSession([
+        'room-access.'.$room->code => [
+            'roles' => $roles,
+            'expires_at' => now()->addDay()->getTimestamp(),
+        ],
+    ]);
 }

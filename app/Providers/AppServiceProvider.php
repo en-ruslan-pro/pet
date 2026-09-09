@@ -35,7 +35,11 @@ class AppServiceProvider extends ServiceProvider
 
             $code = substr($channelName, strlen('private-room.'));
 
-            if (! $request->session()->get('room-access.'.$code)) {
+            $access = $request->session()->get('room-access.'.$code);
+
+            if (! is_array($access)
+                || ! array_intersect(['tv', 'controller'], $access['roles'] ?? [])
+                || ($access['expires_at'] ?? 0) < now()->getTimestamp()) {
                 return null;
             }
 

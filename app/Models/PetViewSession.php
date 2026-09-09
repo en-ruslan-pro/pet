@@ -18,11 +18,11 @@ class PetViewSession extends Model
     /** @use HasFactory<PetViewSessionFactory> */
     use HasFactory;
 
-    protected $fillable = ['room_id', 'character_id', 'pet_model_id', 'client_session_id', 'started_at', 'last_seen_at', 'ended_at'];
+    protected $fillable = ['room_id', 'character_id', 'pet_model_id', 'client_session_id', 'device_data', 'started_at', 'last_seen_at', 'ended_at'];
 
     protected function casts(): array
     {
-        return ['started_at' => 'datetime', 'last_seen_at' => 'datetime', 'ended_at' => 'datetime'];
+        return ['device_data' => 'array', 'started_at' => 'datetime', 'last_seen_at' => 'datetime', 'ended_at' => 'datetime'];
     }
 
     /** @return BelongsTo<Room, $this> */

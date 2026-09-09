@@ -38,16 +38,18 @@ class PetTelemetryService
         $this->recordNeedSnapshot($room, 'created', force: true);
     }
 
-    public function startViewSession(Room $room, string $clientSessionId): PetViewSession
+    /** @param array<string, mixed> $deviceData */
+    public function startViewSession(Room $room, string $clientSessionId, array $deviceData): PetViewSession
     {
         $room->loadMissing('character.petModel');
 
         return PetViewSession::query()->firstOrCreate(
-            ['client_session_id' => $clientSessionId],
+            ['room_id' => $room->id, 'client_session_id' => $clientSessionId],
             [
                 'room_id' => $room->id,
                 'character_id' => $room->character_id,
                 'pet_model_id' => $room->character?->petModel?->id,
+                'device_data' => $deviceData,
                 'started_at' => now(),
                 'last_seen_at' => now(),
             ],

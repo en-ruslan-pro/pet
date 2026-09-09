@@ -21,6 +21,7 @@ return [
         'meowing' => ':name is meowing',
         'model_load_failed' => 'Could not load the pet model',
         'character_not_ready' => 'This character is not ready to use yet.',
+        'tv_connection_unavailable' => 'TV connection unavailable',
     ],
     'needs' => [
         'satiety' => 'Satiety',

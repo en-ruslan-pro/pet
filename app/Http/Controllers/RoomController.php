@@ -20,6 +20,8 @@ use Illuminate\View\View;
 
 class RoomController extends Controller
 {
+    private const ACCESS_TTL_SECONDS = 86_400;
+
     public function __construct(private RoomCommandDispatcher $commandDispatcher) {}
 
     public function create(): View
@@ -55,7 +57,7 @@ class RoomController extends Controller
         }
         $room = Room::createForCharacter($character, $validated['pet_name'] ?? null);
         $telemetry->recordRoomCreated($room);
-        $this->grantAccess($request, $room);
+        $this->grantAccess($request, $room, 'controller');
 
         return to_route('room.show', $room);
     }
@@ -72,13 +74,14 @@ class RoomController extends Controller
         ]);
 
         $room = Room::query()->where('code', Str::upper($validated['code']))->firstOrFail();
+        $this->grantAccess($request, $room, 'tv');
 
         return to_route('tv.show', $room);
     }
 
     public function showTv(Request $request, Room $room, PetTelemetryService $telemetry): View
     {
-        $this->grantAccess($request, $room);
+        $this->ensureAccess($request, $room, 'tv');
         $room->refreshPetNeeds();
         $telemetry->recordNeedSnapshot($room, 'sync');
         $room->update(['tv_connected_at' => now()]);
@@ -107,7 +110,7 @@ class RoomController extends Controller
 
     public function show(Request $request, Room $room, PetTelemetryService $telemetry): View
     {
-        $this->grantAccess($request, $room);
+        $this->ensureAccess($request, $room, 'controller');
         $room->refreshPetNeeds();
         $telemetry->recordNeedSnapshot($room, 'sync');
 
@@ -116,7 +119,7 @@ class RoomController extends Controller
 
     public function heartbeat(Request $request, Room $room, PetTelemetryService $telemetry): JsonResponse
     {
-        $this->ensureAccess($request, $room);
+        $this->ensureAccess($request, $room, 'tv');
         $room->update(['tv_connected_at' => now()]);
         $room->refreshPetNeeds();
         $telemetry->recordNeedSnapshot($room, 'sync');
@@ -126,7 +129,7 @@ class RoomController extends Controller
 
     public function status(Request $request, Room $room, PetTelemetryService $telemetry): JsonResponse
     {
-        $this->ensureAccess($request, $room);
+        $this->ensureAccess($request, $room, 'controller');
         $room->refreshPetNeeds();
         $telemetry->recordNeedSnapshot($room, 'sync');
 
@@ -138,7 +141,7 @@ class RoomController extends Controller
 
     public function sendPetAction(Request $request, Room $room, string $action, PetTelemetryService $telemetry): JsonResponse
     {
-        $this->ensureAccess($request, $room);
+        $this->ensureAccess($request, $room, 'controller');
         $behavior = ['feed' => 'eat', 'play' => 'play', 'sleep' => 'sleep'][$action];
         $room->refreshPetNeeds();
         $telemetry->recordNeedSnapshot($room, 'sync');
@@ -161,25 +164,38 @@ class RoomController extends Controller
 
     public function startViewSession(Request $request, Room $room, PetTelemetryService $telemetry): JsonResponse
     {
-        $this->ensureAccess($request, $room);
-        $validated = $request->validate(['client_session_id' => ['required', 'uuid']]);
-        $session = $telemetry->startViewSession($room, $validated['client_session_id']);
+        $this->ensureAccess($request, $room, 'tv');
+        $validated = $request->validate([
+            'client_session_id' => ['required', 'uuid'],
+            'device' => ['required', 'array:user_agent,platform,language,screen_width,screen_height,pixel_ratio'],
+            'device.user_agent' => ['required', 'string', 'max:500'],
+            'device.platform' => ['nullable', 'string', 'max:100'],
+            'device.language' => ['required', 'string', 'max:20'],
+            'device.screen_width' => ['required', 'integer', 'min:1', 'max:20000'],
+            'device.screen_height' => ['required', 'integer', 'min:1', 'max:20000'],
+            'device.pixel_ratio' => ['required', 'numeric', 'min:0.1', 'max:10'],
+        ]);
+        $session = $telemetry->startViewSession($room, $validated['client_session_id'], $validated['device']);
 
         return response()->json(['id' => $session->id]);
     }
 
     public function heartbeatViewSession(Request $request, Room $room, PetViewSession $session, PetTelemetryService $telemetry): JsonResponse
     {
-        $this->ensureAccess($request, $room);
+        $this->ensureAccess($request, $room, 'tv');
         $telemetry->heartbeatViewSession($room, $session);
         $room->update(['tv_connected_at' => now()]);
 
-        return response()->json(['connected' => true, 'needs' => $room->petNeeds()]);
+        return response()->json([
+            'connected' => true,
+            'needs' => $room->petNeeds(),
+            'activeExecution' => $this->activeExecution($room),
+        ]);
     }
 
     public function endViewSession(Request $request, Room $room, PetViewSession $session, PetTelemetryService $telemetry): JsonResponse
     {
-        $this->ensureAccess($request, $room);
+        $this->ensureAccess($request, $room, 'tv');
         $telemetry->endViewSession($room, $session);
 
         return response()->json(['ended' => true]);
@@ -187,7 +203,7 @@ class RoomController extends Controller
 
     public function startAutonomousAction(Request $request, Room $room, PetTelemetryService $telemetry): JsonResponse
     {
-        $this->ensureAccess($request, $room);
+        $this->ensureAccess($request, $room, 'tv');
         $validated = $request->validate(['action' => ['required', 'string', 'max:100'], 'view_session_id' => ['required', 'integer']]);
         $room->refreshPetNeeds();
         $execution = $telemetry->requestAction($room, $validated['action'], 'autonomous');
@@ -198,7 +214,7 @@ class RoomController extends Controller
 
     public function startActionExecution(Request $request, Room $room, PetActionExecution $execution, PetTelemetryService $telemetry): JsonResponse
     {
-        $this->ensureAccess($request, $room);
+        $this->ensureAccess($request, $room, 'tv');
         $validated = $request->validate(['view_session_id' => ['required', 'integer']]);
         $execution = $telemetry->startAction($room, $execution, $this->viewSession($room, $validated['view_session_id']));
 
@@ -207,7 +223,7 @@ class RoomController extends Controller
 
     public function finishActionExecution(Request $request, Room $room, PetActionExecution $execution, PetTelemetryService $telemetry): JsonResponse
     {
-        $this->ensureAccess($request, $room);
+        $this->ensureAccess($request, $room, 'tv');
         $validated = $request->validate(['view_session_id' => ['required', 'integer']]);
         $execution = $telemetry->finishAction($room, $execution, $this->viewSession($room, $validated['view_session_id']));
 
@@ -216,7 +232,7 @@ class RoomController extends Controller
 
     public function sendMeow(Request $request, Room $room): JsonResponse
     {
-        $this->ensureAccess($request, $room);
+        $this->ensureAccess($request, $room, 'controller');
         $this->dispatchRoomCommand($room, 'meow');
 
         return response()->json([
@@ -225,9 +241,15 @@ class RoomController extends Controller
         ]);
     }
 
-    private function grantAccess(Request $request, Room $room): void
+    private function grantAccess(Request $request, Room $room, string $role): void
     {
-        $request->session()->put('room-access.'.$room->code, true);
+        $access = $request->session()->get('room-access.'.$room->code, []);
+        $roles = is_array($access) ? $access['roles'] ?? [] : [];
+
+        $request->session()->put('room-access.'.$room->code, [
+            'roles' => array_values(array_unique([...$roles, $role])),
+            'expires_at' => now()->addSeconds(self::ACCESS_TTL_SECONDS)->getTimestamp(),
+        ]);
     }
 
     /** @return list<string> */
@@ -241,9 +263,36 @@ class RoomController extends Controller
         ];
     }
 
-    private function ensureAccess(Request $request, Room $room): void
+    private function ensureAccess(Request $request, Room $room, string $role): void
     {
-        abort_unless($request->session()->get('room-access.'.$room->code) === true, 403);
+        $access = $request->session()->get('room-access.'.$room->code);
+
+        abort_unless(
+            is_array($access)
+                && in_array($role, $access['roles'] ?? [], true)
+                && ($access['expires_at'] ?? 0) >= now()->getTimestamp(),
+            403,
+        );
+    }
+
+    /** @return array{id: int, action: string, needs: array{satiety: int, energy: int, happiness: int}}|null */
+    private function activeExecution(Room $room): ?array
+    {
+        $execution = PetActionExecution::query()
+            ->whereBelongsTo($room)
+            ->whereIn('status', ['requested', 'started'])
+            ->orderBy('requested_at')
+            ->first();
+
+        if ($execution === null) {
+            return null;
+        }
+
+        return [
+            'id' => $execution->id,
+            'action' => $execution->action_key,
+            'needs' => $room->petNeeds(),
+        ];
     }
 
     private function dispatchRoomCommand(Room $room, string $action, ?int $executionId = null): void

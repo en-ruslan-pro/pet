@@ -26,6 +26,7 @@
             data-character='@json($character)'
             data-pet-needs='@json($room->petNeeds())'
             data-reverb='@json($reverb)'
+            data-messages='@json(["connectionUnavailable" => __("pet.messages.tv_connection_unavailable")])'
         >
             <iframe title="{{ $room->pet_name }} дома" src="{{ route('demo', ['tv' => 1, 'debug' => request()->has('debug'), 'character' => $sceneCharacter]) }}"></iframe>
             @if (request()->has('debug'))

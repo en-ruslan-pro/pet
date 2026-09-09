@@ -98,6 +98,7 @@ test('requires an existing character when creating a room', function () {
 
 test('shows a link to the new pet room', function () {
     $room = Room::factory()->create(['code' => 'ROOM01']);
+    grantRoomAccess($this, $room, ['controller']);
 
     $this->get(route('room.show', $room))
         ->assertSee('Открыть комнату')
@@ -124,6 +125,7 @@ test('opens the tv room from its connection code and records the connection', fu
 
 test('shows TV connection diagnostics only in debug mode', function () {
     $room = Room::factory()->create(['code' => 'DEBUG1']);
+    $this->post(route('tv.enter'), ['code' => $room->code]);
 
     $this->get(route('tv.show', [$room, 'debug' => 1]))
         ->assertSee('data-tv-room-status', false)
@@ -137,6 +139,7 @@ test('passes the selected character model and animation configuration to the tv 
     $character = Character::factory()->for($model)->create([
     ]);
     $room = Room::factory()->for($character)->create(['code' => 'CHAR01']);
+    $this->post(route('tv.enter'), ['code' => $room->code]);
 
     $this->get(route('tv.show', $room))
         ->assertSee('data-character', false)
@@ -159,6 +162,7 @@ test('opens the tv room directly from the home page with a room code', function 
 test('sends the meow command to the private room channel', function () {
     Event::fake([RoomCommandRequested::class]);
     $room = Room::factory()->create(['code' => 'MEOW01']);
+    grantRoomAccess($this, $room, ['controller']);
 
     $this->get(route('room.show', $room));
 
@@ -183,6 +187,7 @@ test('requests the selected care action without applying its effects before comp
         'happiness' => 60,
         'pet_needs_updated_at' => now(),
     ]);
+    grantRoomAccess($this, $room, ['controller']);
 
     $this->get(route('room.show', $room));
 
@@ -210,6 +215,7 @@ test('refreshes pet needs as time passes', function () {
         'happiness' => 80,
         'pet_needs_updated_at' => now()->subMinutes(30),
     ]);
+    grantRoomAccess($this, $room, ['controller']);
 
     $this->get(route('room.show', $room));
 
@@ -264,6 +270,7 @@ test('does not reset natural need decay when an action changes needs', function 
         'energy' => 80,
         'pet_needs_updated_at' => $start,
     ]);
+    grantRoomAccess($this, $room, ['controller']);
 
     $this->travelTo($start->copy()->addMinutes(5));
     $room->applyNeedEffects(['happiness' => 10]);
@@ -332,6 +339,7 @@ test('does not change pet needs when the realtime command cannot be broadcast', 
         ->once()
         ->withArgs(fn (Room $reportedRoom, string $action, ?int $executionId): bool => $reportedRoom->is($room) && $action === 'feed' && $executionId > 0);
 
+    grantRoomAccess($this, $room, ['controller']);
     $this->get(route('room.show', $room));
 
     $this->postJson(route('room.actions', [$room, 'feed']))->assertServerError();
@@ -346,6 +354,7 @@ test('does not change pet needs when the realtime command cannot be broadcast', 
 
 test('shows the room code without a qr code on the controller', function () {
     $room = Room::factory()->create(['code' => 'CODE01']);
+    grantRoomAccess($this, $room, ['controller']);
 
     $this->get(route('room.show', $room))
         ->assertOk()
@@ -370,8 +379,9 @@ test('authorizes the private room channel after the room is opened in the browse
     Broadcast::forgetDrivers();
     require base_path('routes/channels.php');
     $room = Room::factory()->create(['code' => 'AUTH01']);
+    grantRoomAccess($this, $room, ['controller']);
 
-    $this->get(route('room.show', $room))->assertSessionHas('room-access.AUTH01', true);
+    $this->get(route('room.show', $room))->assertSessionHas('room-access.AUTH01.roles', ['controller']);
 
     $this->post('/broadcasting/auth', [
         'channel_name' => "private-room.{$room->code}",

@@ -273,6 +273,30 @@ test('does not reset natural need decay when an action changes needs', function 
     expect($room->fresh()->petNeeds()['energy'])->toBe(79);
 });
 
+test('does not overwrite an action effect when a stale room refreshes pet needs', function () {
+    $start = now();
+    $room = Room::factory()->create([
+        'hunger' => 20,
+        'energy' => 80,
+        'happiness' => 80,
+        'pet_needs_updated_at' => $start,
+        'satiety_updated_at' => $start,
+        'energy_updated_at' => $start,
+        'happiness_updated_at' => $start,
+    ]);
+    $staleRoom = $room->fresh();
+
+    $this->travelTo($start->copy()->addMinutes(10));
+    $room->refreshPetNeeds()->applyNeedEffects(['satiety' => 10]);
+    $staleRoom->refreshPetNeeds();
+
+    expect($staleRoom->petNeeds())->toBe([
+        'satiety' => 88,
+        'energy' => 79,
+        'happiness' => 80,
+    ]);
+});
+
 test('forbids pet care commands before the room is opened in the browser session', function () {
     Event::fake([RoomCommandRequested::class]);
     $room = Room::factory()->create(['code' => 'LOCK01']);

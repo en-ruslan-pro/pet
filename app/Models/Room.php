@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -85,67 +86,42 @@ class Room extends Model
 
     public function refreshPetNeeds(): self
     {
-        $now = now();
-        $satietyUpdatedAt = $this->needUpdatedAt('satiety', $now);
-        $energyUpdatedAt = $this->needUpdatedAt('energy', $now);
-        $happinessUpdatedAt = $this->needUpdatedAt('happiness', $now);
-        $hungerIncrease = intdiv($this->elapsedWholeMinutes($satietyUpdatedAt, $now), self::NEED_DECAY['satiety_per_minutes']);
-        $energyDecrease = intdiv($this->elapsedWholeMinutes($energyUpdatedAt, $now), self::NEED_DECAY['energy_per_minutes']);
-        $happinessDecrease = intdiv($this->elapsedWholeMinutes($happinessUpdatedAt, $now), self::NEED_DECAY['happiness_per_minutes']);
+        return $this->withLockedState(function (self $room): void {
+            $now = now();
+            $satietyUpdatedAt = $room->needUpdatedAt('satiety', $now);
+            $energyUpdatedAt = $room->needUpdatedAt('energy', $now);
+            $happinessUpdatedAt = $room->needUpdatedAt('happiness', $now);
+            $hungerIncrease = intdiv($room->elapsedWholeMinutes($satietyUpdatedAt, $now), self::NEED_DECAY['satiety_per_minutes']);
+            $energyDecrease = intdiv($room->elapsedWholeMinutes($energyUpdatedAt, $now), self::NEED_DECAY['energy_per_minutes']);
+            $happinessDecrease = intdiv($room->elapsedWholeMinutes($happinessUpdatedAt, $now), self::NEED_DECAY['happiness_per_minutes']);
 
-        $this->forceFill([
-            'hunger' => min(100, $this->hunger + $hungerIncrease),
-            'energy' => max(0, $this->energy - $energyDecrease),
-            'happiness' => max(0, $this->happiness - $happinessDecrease),
-            'satiety_updated_at' => $satietyUpdatedAt->addMinutes($hungerIncrease * self::NEED_DECAY['satiety_per_minutes']),
-            'energy_updated_at' => $energyUpdatedAt->addMinutes($energyDecrease * self::NEED_DECAY['energy_per_minutes']),
-            'happiness_updated_at' => $happinessUpdatedAt->addMinutes($happinessDecrease * self::NEED_DECAY['happiness_per_minutes']),
-        ])->save();
-
-        return $this;
-    }
-
-    /** @param array<string, int|float> $needEffects */
-    public function performPetAction(string $action, array $needEffects = []): self
-    {
-        $this->refreshPetNeeds();
-
-        if ($needEffects !== []) {
-            return $this->applyNeedEffects($needEffects);
-        }
-
-        $changes = match ($action) {
-            'feed' => ['satiety' => min(100, $this->petNeeds()['satiety'] + 8)],
-            'play' => ['satiety' => max(0, $this->petNeeds()['satiety'] - 4), 'energy' => max(0, $this->energy - 6), 'happiness' => min(100, $this->happiness + 8)],
-            'sleep' => ['satiety' => max(0, $this->petNeeds()['satiety'] - 3), 'energy' => min(100, $this->energy + 8), 'happiness' => max(0, $this->happiness - 4)],
-            default => throw new \InvalidArgumentException("Unsupported pet action: {$action}"),
-        };
-
-        $this->forceFill([
-            'hunger' => 100 - $changes['satiety'],
-            'energy' => $changes['energy'] ?? $this->energy,
-            'happiness' => $changes['happiness'] ?? $this->happiness,
-        ])->save();
-
-        return $this;
+            $room->forceFill([
+                'hunger' => min(100, $room->hunger + $hungerIncrease),
+                'energy' => max(0, $room->energy - $energyDecrease),
+                'happiness' => max(0, $room->happiness - $happinessDecrease),
+                'satiety_updated_at' => $satietyUpdatedAt->addMinutes($hungerIncrease * self::NEED_DECAY['satiety_per_minutes']),
+                'energy_updated_at' => $energyUpdatedAt->addMinutes($energyDecrease * self::NEED_DECAY['energy_per_minutes']),
+                'happiness_updated_at' => $happinessUpdatedAt->addMinutes($happinessDecrease * self::NEED_DECAY['happiness_per_minutes']),
+            ])->save();
+        });
     }
 
     /** @param array<string, int|float> $needEffects */
     public function applyNeedEffects(array $needEffects): self
     {
-        $changes = [];
+        return $this->withLockedState(function (self $room) use ($needEffects): void {
+            $changes = [];
 
-        foreach ($this->petNeeds() as $need => $value) {
-            $changes[$need] = (int) max(0, min(100, $value + ($needEffects[$need] ?? 0)));
-        }
+            foreach ($room->petNeeds() as $need => $value) {
+                $changes[$need] = (int) max(0, min(100, $value + ($needEffects[$need] ?? 0)));
+            }
 
-        $this->forceFill([
-            'hunger' => 100 - $changes['satiety'],
-            'energy' => $changes['energy'],
-            'happiness' => $changes['happiness'],
-        ])->save();
-
-        return $this;
+            $room->forceFill([
+                'hunger' => 100 - $changes['satiety'],
+                'energy' => $changes['energy'],
+                'happiness' => $changes['happiness'],
+            ])->save();
+        });
     }
 
     public function isTvConnected(): bool
@@ -186,5 +162,18 @@ class Room extends Model
     private function elapsedWholeMinutes(CarbonInterface $updatedAt, CarbonInterface $now): int
     {
         return (int) floor($updatedAt->diffInMinutes($now));
+    }
+
+    /** @param callable(self): void $callback */
+    private function withLockedState(callable $callback): self
+    {
+        DB::transaction(function () use ($callback): void {
+            $room = self::query()->lockForUpdate()->whereKey($this->getKey())->firstOrFail();
+
+            $callback($room);
+            $this->setRawAttributes($room->getAttributes(), true);
+        });
+
+        return $this;
     }
 }

@@ -26,6 +26,7 @@ if (tvRoom !== null) {
     let viewSessionId;
     const executionIdsByToken = new Map();
     const pendingFinishTokens = new Set();
+    let viewSessionPromise;
 
     window.Pusher = Pusher;
 
@@ -59,6 +60,25 @@ if (tvRoom !== null) {
         return response;
     };
 
+    const ensureViewSession = async () => {
+        if (viewSessionId !== undefined) {
+            return viewSessionId;
+        }
+
+        viewSessionPromise ??= request(tvRoom.dataset.sessionStartUrl, { body: JSON.stringify({ client_session_id: clientSessionId }) })
+            .then(async (response) => {
+                if (! response.ok) {
+                    return undefined;
+                }
+
+                viewSessionId = (await response.json()).id;
+
+                return viewSessionId;
+            });
+
+        return viewSessionPromise;
+    };
+
     echo.private(`room.${tvRoom.dataset.roomCode}`)
         .listen('.room.command.requested', (event) => {
             sendToScene({ action: event.action, executionId: event.executionId, petName: event.petName, needs: event.needs });
@@ -79,10 +99,16 @@ if (tvRoom !== null) {
         }
 
         if (event.data?.type === 'pet-action-start') {
+            const sessionId = await ensureViewSession();
+
+            if (! Number.isInteger(sessionId)) {
+                return;
+            }
+
             const executionId = event.data.executionId;
             const response = executionId === undefined
-                ? await request(tvRoom.dataset.autonomousActionUrl, { body: JSON.stringify({ action: event.data.action }) })
-                : await request(tvRoom.dataset.actionStartUrl.replace('__execution__', String(executionId)));
+                ? await request(tvRoom.dataset.autonomousActionUrl, { body: JSON.stringify({ action: event.data.action, view_session_id: sessionId }) })
+                : await request(tvRoom.dataset.actionStartUrl.replace('__execution__', String(executionId)), { body: JSON.stringify({ view_session_id: sessionId }) });
 
             if (! response.ok) {
                 return;
@@ -93,7 +119,7 @@ if (tvRoom !== null) {
             sendToScene({ type: 'pet-action-execution', token: event.data.token, executionId: payload.id });
 
             if (pendingFinishTokens.delete(event.data.token)) {
-                const finishResponse = await request(tvRoom.dataset.actionFinishUrl.replace('__execution__', String(payload.id)));
+                const finishResponse = await request(tvRoom.dataset.actionFinishUrl.replace('__execution__', String(payload.id)), { body: JSON.stringify({ view_session_id: sessionId }) });
 
                 if (finishResponse.ok) {
                     const finishPayload = await finishResponse.json();
@@ -103,6 +129,12 @@ if (tvRoom !== null) {
         }
 
         if (event.data?.type === 'pet-action-finish') {
+            const sessionId = await ensureViewSession();
+
+            if (! Number.isInteger(sessionId)) {
+                return;
+            }
+
             const executionId = event.data.executionId ?? executionIdsByToken.get(event.data.token);
 
             if (! Number.isInteger(executionId)) {
@@ -111,7 +143,7 @@ if (tvRoom !== null) {
                 return;
             }
 
-            const response = await request(tvRoom.dataset.actionFinishUrl.replace('__execution__', String(executionId)));
+            const response = await request(tvRoom.dataset.actionFinishUrl.replace('__execution__', String(executionId)), { body: JSON.stringify({ view_session_id: sessionId }) });
 
             if (response.ok) {
                 const payload = await response.json();
@@ -122,11 +154,7 @@ if (tvRoom !== null) {
         }
     });
 
-    request(tvRoom.dataset.sessionStartUrl, { body: JSON.stringify({ client_session_id: clientSessionId }) }).then(async (response) => {
-        if (response.ok) {
-            viewSessionId = (await response.json()).id;
-        }
-
+    ensureViewSession().then(async () => {
         return heartbeat();
     }).then(() => {
         if (status !== null) {

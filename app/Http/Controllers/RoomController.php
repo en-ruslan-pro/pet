@@ -9,7 +9,7 @@ use App\Models\PetActionExecution;
 use App\Models\PetViewSession;
 use App\Models\Room;
 use App\Services\PetTelemetryService;
-use App\Services\RoomCommandSentryContext;
+use App\Services\RoomCommandDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,11 +17,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use Throwable;
 
 class RoomController extends Controller
 {
-    public function __construct(private RoomCommandSentryContext $sentryContext) {}
+    public function __construct(private RoomCommandDispatcher $commandDispatcher) {}
 
     public function create(): View
     {
@@ -144,12 +143,8 @@ class RoomController extends Controller
         $room->refreshPetNeeds();
         $telemetry->recordNeedSnapshot($room, 'sync');
 
-        $execution = DB::transaction(function () use ($room, $action, $behavior, $telemetry): PetActionExecution {
-            $execution = $telemetry->requestAction($room, $behavior, 'controller');
-            $this->dispatchRoomCommand($room, $action, $execution->id);
-
-            return $execution;
-        });
+        $execution = DB::transaction(fn (): PetActionExecution => $telemetry->requestAction($room, $behavior, 'controller', $action));
+        $this->commandDispatcher->dispatch($execution);
 
         return response()->json([
             'action' => $action,
@@ -193,10 +188,10 @@ class RoomController extends Controller
     public function startAutonomousAction(Request $request, Room $room, PetTelemetryService $telemetry): JsonResponse
     {
         $this->ensureAccess($request, $room);
-        $validated = $request->validate(['action' => ['required', 'string', 'max:100']]);
+        $validated = $request->validate(['action' => ['required', 'string', 'max:100'], 'view_session_id' => ['required', 'integer']]);
         $room->refreshPetNeeds();
         $execution = $telemetry->requestAction($room, $validated['action'], 'autonomous');
-        $execution = $telemetry->startAction($room, $execution);
+        $execution = $telemetry->startAction($room, $execution, $this->viewSession($room, $validated['view_session_id']));
 
         return response()->json(['id' => $execution->id, 'needs' => $room->petNeeds()]);
     }
@@ -204,7 +199,8 @@ class RoomController extends Controller
     public function startActionExecution(Request $request, Room $room, PetActionExecution $execution, PetTelemetryService $telemetry): JsonResponse
     {
         $this->ensureAccess($request, $room);
-        $execution = $telemetry->startAction($room, $execution);
+        $validated = $request->validate(['view_session_id' => ['required', 'integer']]);
+        $execution = $telemetry->startAction($room, $execution, $this->viewSession($room, $validated['view_session_id']));
 
         return response()->json(['id' => $execution->id]);
     }
@@ -212,7 +208,8 @@ class RoomController extends Controller
     public function finishActionExecution(Request $request, Room $room, PetActionExecution $execution, PetTelemetryService $telemetry): JsonResponse
     {
         $this->ensureAccess($request, $room);
-        $execution = $telemetry->finishAction($room, $execution);
+        $validated = $request->validate(['view_session_id' => ['required', 'integer']]);
+        $execution = $telemetry->finishAction($room, $execution, $this->viewSession($room, $validated['view_session_id']));
 
         return response()->json(['id' => $execution->id, 'needs' => $execution->needs_after ?? $room->petNeeds()]);
     }
@@ -251,12 +248,11 @@ class RoomController extends Controller
 
     private function dispatchRoomCommand(Room $room, string $action, ?int $executionId = null): void
     {
-        try {
-            RoomCommandRequested::dispatch($room, $action, $executionId);
-        } catch (Throwable $exception) {
-            $this->sentryContext->add($room, $action, $executionId);
+        RoomCommandRequested::dispatch($room, $action, $executionId);
+    }
 
-            throw $exception;
-        }
+    private function viewSession(Room $room, int $sessionId): PetViewSession
+    {
+        return PetViewSession::query()->whereBelongsTo($room)->findOrFail($sessionId);
     }
 }

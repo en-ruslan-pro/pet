@@ -55,6 +55,8 @@ test('applies a configured action effect once after its TV completion', function
     ]);
 
     $this->get(route('room.show', $room));
+    $this->get(route('tv.show', $room));
+    $session = $this->postJson(route('tv.sessions.start', $room), ['client_session_id' => (string) Str::uuid()]);
     $this->postJson(route('room.actions', [$room, 'feed']))
         ->assertOk()
         ->assertJsonPath('needs.satiety', 35);
@@ -63,11 +65,11 @@ test('applies a configured action effect once after its TV completion', function
     expect($execution->status)->toBe('requested');
     $this->assertDatabaseHas('rooms', ['id' => $room->id, 'hunger' => 65]);
 
-    $this->postJson(route('tv.actions.execution.start', [$room, $execution]))->assertOk();
-    $this->postJson(route('tv.actions.execution.finish', [$room, $execution]))
+    $this->postJson(route('tv.actions.execution.start', [$room, $execution]), ['view_session_id' => $session->json('id')])->assertOk();
+    $this->postJson(route('tv.actions.execution.finish', [$room, $execution]), ['view_session_id' => $session->json('id')])
         ->assertOk()
         ->assertJsonPath('needs.satiety', 45);
-    $this->postJson(route('tv.actions.execution.finish', [$room, $execution]))
+    $this->postJson(route('tv.actions.execution.finish', [$room, $execution]), ['view_session_id' => $session->json('id')])
         ->assertOk()
         ->assertJsonPath('needs.satiety', 45);
 
@@ -90,10 +92,12 @@ test('rejects a completion that was not started by the TV', function () {
     $room = Room::factory()->for($character)->create(['code' => 'START1']);
 
     $this->get(route('room.show', $room));
+    $this->get(route('tv.show', $room));
+    $session = $this->postJson(route('tv.sessions.start', $room), ['client_session_id' => (string) Str::uuid()]);
     $this->postJson(route('room.actions', [$room, 'feed']))->assertOk();
     $execution = PetActionExecution::query()->sole();
 
-    $this->postJson(route('tv.actions.execution.finish', [$room, $execution]))->assertConflict();
+    $this->postJson(route('tv.actions.execution.finish', [$room, $execution]), ['view_session_id' => $session->json('id')])->assertConflict();
 
     expect($execution->fresh()->status)->toBe('requested');
 });
@@ -119,7 +123,7 @@ test('abandons an unconfirmed action without applying its effect', function () {
     $this->assertDatabaseHas('rooms', ['id' => $room->id, 'hunger' => 65]);
 });
 
-test('abandons a started sleep action that does not finish within 45 seconds', function () {
+test('abandons a started sleep action after its configured completion deadline', function () {
     Event::fake([RoomCommandRequested::class]);
     $this->seed(PetCatalogSeeder::class);
     $character = Character::query()->where('name', 'Полосатая кошка')->sole();
@@ -134,9 +138,9 @@ test('abandons a started sleep action that does not finish within 45 seconds', f
     $session = $this->postJson(route('tv.sessions.start', $room), ['client_session_id' => (string) Str::uuid()]);
     $this->postJson(route('room.actions', [$room, 'sleep']))->assertOk();
     $execution = PetActionExecution::query()->sole();
-    $this->postJson(route('tv.actions.execution.start', [$room, $execution]))->assertOk();
+    $this->postJson(route('tv.actions.execution.start', [$room, $execution]), ['view_session_id' => $session->json('id')])->assertOk();
 
-    $this->travel(46)->seconds();
+    $this->travel(54)->seconds();
     $this->postJson(route('tv.sessions.heartbeat', [$room, $session->json('id')]))->assertOk();
 
     $this->assertDatabaseHas('pet_action_executions', [
@@ -145,6 +149,24 @@ test('abandons a started sleep action that does not finish within 45 seconds', f
         'finish_reason' => 'timeout',
     ]);
     $this->assertDatabaseHas('rooms', ['id' => $room->id, 'hunger' => 65, 'energy' => 70]);
+});
+
+test('allows only the first TV session to start and finish an action', function () {
+    Event::fake([RoomCommandRequested::class]);
+    $this->seed(PetCatalogSeeder::class);
+    $character = Character::query()->where('name', 'Полосатая кошка')->sole();
+    $room = Room::factory()->for($character)->create(['code' => 'TVLOCK']);
+
+    $this->get(route('tv.show', $room));
+    $firstSession = $this->postJson(route('tv.sessions.start', $room), ['client_session_id' => (string) Str::uuid()]);
+    $secondSession = $this->postJson(route('tv.sessions.start', $room), ['client_session_id' => (string) Str::uuid()]);
+    $this->postJson(route('room.actions', [$room, 'feed']))->assertOk();
+    $execution = PetActionExecution::query()->sole();
+
+    $this->postJson(route('tv.actions.execution.start', [$room, $execution]), ['view_session_id' => $firstSession->json('id')])->assertOk();
+    $this->postJson(route('tv.actions.execution.start', [$room, $execution]), ['view_session_id' => $secondSession->json('id')])->assertConflict();
+    $this->postJson(route('tv.actions.execution.finish', [$room, $execution]), ['view_session_id' => $secondSession->json('id')])->assertConflict();
+    $this->postJson(route('tv.actions.execution.finish', [$room, $execution]), ['view_session_id' => $firstSession->json('id')])->assertOk();
 });
 
 test('forbids telemetry before the TV room is opened in the browser session', function () {
@@ -157,6 +179,7 @@ test('abandons expired actions when the scheduled command runs without a TV hear
     $execution = PetActionExecution::factory()->create([
         'status' => 'requested',
         'requested_at' => now()->subSeconds(46),
+        'start_deadline_at' => now()->subSecond(),
     ]);
 
     $this->artisan('pet:abandon-expired-actions')

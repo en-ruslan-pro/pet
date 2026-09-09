@@ -14,7 +14,11 @@ use Illuminate\Support\Facades\DB;
 
 class PetTelemetryService
 {
-    private const ACTION_TIMEOUT_SECONDS = 45;
+    private const START_TIMEOUT_SECONDS = 15;
+
+    private const ROUTE_TIMEOUT_SECONDS = 30;
+
+    private const COMPLETION_GRACE_SECONDS = 10;
 
     public function recordRoomCreated(Room $room): void
     {
@@ -70,10 +74,24 @@ class PetTelemetryService
         ])->save();
     }
 
-    public function requestAction(Room $room, string $actionKey, string $source): PetActionExecution
+    public function requestAction(Room $room, string $actionKey, string $source, ?string $commandAction = null): PetActionExecution
     {
         [$model, $action, $configuration] = $this->actionConfiguration($room, $actionKey);
         $balanceVersion = $this->balanceVersion($model);
+        $requestedAt = now();
+
+        if ($source === 'controller') {
+            PetActionExecution::query()
+                ->whereBelongsTo($room)
+                ->where('source', 'autonomous')
+                ->whereIn('status', ['requested', 'started'])
+                ->update([
+                    'status' => 'abandoned',
+                    'finish_reason' => 'interrupted_by_controller',
+                    'finished_at' => $requestedAt,
+                    'updated_at' => $requestedAt,
+                ]);
+        }
 
         return PetActionExecution::query()->create([
             'room_id' => $room->id,
@@ -82,39 +100,53 @@ class PetTelemetryService
             'pet_action_id' => $action->id,
             'pet_balance_version_id' => $balanceVersion->id,
             'action_key' => $actionKey,
+            'command_action' => $commandAction,
             'source' => $source,
             'status' => 'requested',
-            'requested_at' => now(),
+            'delivery_status' => $source === 'controller' ? 'pending' : 'not_required',
+            'requested_at' => $requestedAt,
+            'start_deadline_at' => $requestedAt->copy()->addSeconds(self::START_TIMEOUT_SECONDS),
             'configuration_snapshot' => $configuration,
             'needs_before' => $room->petNeeds(),
         ]);
     }
 
-    public function startAction(Room $room, PetActionExecution $execution): PetActionExecution
+    public function startAction(Room $room, PetActionExecution $execution, PetViewSession $session): PetActionExecution
     {
-        return DB::transaction(function () use ($room, $execution): PetActionExecution {
+        return DB::transaction(function () use ($room, $execution, $session): PetActionExecution {
             $execution = PetActionExecution::query()->lockForUpdate()->findOrFail($execution->id);
             abort_unless($execution->room_id === $room->id, 404);
+            abort_unless($session->room_id === $room->id && $session->ended_at === null, 409);
+            abort_if($execution->status === 'requested' && $execution->start_deadline_at?->isPast(), 409);
+            abort_unless($execution->pet_view_session_id === null || $execution->pet_view_session_id === $session->id, 409);
 
             if ($execution->status === 'requested') {
-                $execution->forceFill(['status' => 'started', 'started_at' => now()])->save();
+                $startedAt = now();
+                $execution->forceFill([
+                    'status' => 'started',
+                    'pet_view_session_id' => $session->id,
+                    'started_at' => $startedAt,
+                    'finish_deadline_at' => $startedAt->copy()->addSeconds($this->completionTimeoutSeconds($execution->configuration_snapshot)),
+                ])->save();
             }
 
             return $execution;
         });
     }
 
-    public function finishAction(Room $room, PetActionExecution $execution): PetActionExecution
+    public function finishAction(Room $room, PetActionExecution $execution, PetViewSession $session): PetActionExecution
     {
-        return DB::transaction(function () use ($room, $execution): PetActionExecution {
+        return DB::transaction(function () use ($room, $execution, $session): PetActionExecution {
             $execution = PetActionExecution::query()->lockForUpdate()->findOrFail($execution->id);
             abort_unless($execution->room_id === $room->id, 404);
+            abort_unless($execution->pet_view_session_id === $session->id, 409);
 
             if ($execution->status === 'finished') {
                 return $execution;
             }
 
             abort_unless($execution->status === 'started', 409);
+            abort_if($execution->finish_deadline_at?->isPast(), 409);
             $room = Room::query()->lockForUpdate()->findOrFail($room->id);
             $room->refreshPetNeeds();
             $this->recordNeedSnapshot($room, 'action_before_finish', $execution, force: true);
@@ -140,9 +172,11 @@ class PetTelemetryService
 
     public function abandonExpiredActions(?Room $room = null): int
     {
-        $query = PetActionExecution::query()
-            ->whereIn('status', ['requested', 'started'])
-            ->where('requested_at', '<', now()->subSeconds(self::ACTION_TIMEOUT_SECONDS));
+        $query = PetActionExecution::query()->where(function ($query): void {
+            $query
+                ->where(fn ($query) => $query->where('status', 'requested')->where('start_deadline_at', '<', now()))
+                ->orWhere(fn ($query) => $query->where('status', 'started')->where('finish_deadline_at', '<', now()));
+        });
 
         if ($room !== null) {
             $query->whereBelongsTo($room);
@@ -225,6 +259,36 @@ class PetTelemetryService
             ['pet_model_id' => $model->id, 'configuration_hash' => $hash],
             ['configuration' => $configuration, 'published_at' => now()],
         );
+    }
+
+    /** @param array<string, mixed>|null $configuration */
+    private function completionTimeoutSeconds(?array $configuration): int
+    {
+        $stepDuration = 0.0;
+        $steps = data_get($configuration, 'steps', []);
+
+        if (is_array($steps)) {
+            foreach ($steps as $step) {
+                if (is_array($step) && is_numeric($step['durationSeconds'] ?? null)) {
+                    $stepDuration += (float) $step['durationSeconds'];
+                }
+            }
+        }
+
+        $configuredDuration = 0.0;
+        $configuredDurations = data_get($configuration, 'settings.duration_seconds', []);
+
+        if (is_array($configuredDurations)) {
+            foreach ($configuredDurations as $duration) {
+                if (is_numeric($duration)) {
+                    $configuredDuration = max($configuredDuration, (float) $duration);
+                }
+            }
+        }
+
+        $routeTimeout = filled(data_get($configuration, 'settings.targetRoomItemKey')) ? self::ROUTE_TIMEOUT_SECONDS : 0;
+
+        return (int) ceil(max($stepDuration, $configuredDuration) + $routeTimeout + self::COMPLETION_GRACE_SECONDS);
     }
 
     /** @param array<string, mixed> $configuration */
